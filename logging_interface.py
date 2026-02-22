@@ -447,6 +447,22 @@ class SQLiteUDPLogger:
             "syslog_target": f"{self.syslog_host}:{self.syslog_port}",
         }
 
+    def clear_sent_logs_before(self, before_timestamp: datetime) -> int:
+        """
+        Delete all logs marked as sent (sent=1) with timestamp before the given datetime.
+        Returns the number of deleted rows.
+        """
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                """
+                DELETE FROM logs
+                WHERE sent = 1 AND timestamp < ?
+                """,
+                (self._format_datetime_utc(before_timestamp),),
+            )
+            deleted = cursor.rowcount
+        return deleted
+
     def query_logs(
         self,
         since: Optional[datetime] = None,

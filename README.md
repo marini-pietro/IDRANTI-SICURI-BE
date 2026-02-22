@@ -60,8 +60,7 @@ To aid in management, each microservice also includes a dedicated endpoint for a
 
 Each instance of a microservice will need its own instance of the interface, this can be achieved by placing the `logging_interface.py` along with the server source code in each machine that will run the service(s) and instantiating the interface in the server source code through the provied factory function `create_interface` in `logging_interface.py`.
 
-N.B: All the log messages are written in UTC time (without timezone indicators) with this format:
-
+**Note:** All log-related operations use UTC time without timezone indicators. Log messages are written in UTC format (without timezone indicators) using this structure:
 ```
 TODO: Insert example of format
 ```
@@ -179,6 +178,8 @@ Service Management
 - `BPLOADERR` - Error in API service while loading blueprints
 - `BPLOADWARN` - Warning in API service while loading blueprints
 - `DBCONNERR` - Error in API service while trying to connect to database
+- `CLRLOGS` - Cleared logs in SQLite database before a given timestamp
+- `CLRLOGSERR` - Error while clearing logs in SQLite database
 
 Control resource operations
 - `CTRLGET`, `CTRLPOST`, `CTRLDEL`, `CTRLPATCH`

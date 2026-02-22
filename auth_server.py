@@ -11,6 +11,8 @@ from flask import Flask, request, jsonify
 from os import system as os_system_cmd
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.exceptions import InvalidKey
+from datetime import fromisoformat as datetime_fromisoformat
+from datetime import datetime as datetime_obj
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
@@ -424,6 +426,105 @@ def refresh():
     )
 
     return jsonify({"access_token": new_access_token}), STATUS_CODES["ok"]
+
+
+# Endpoint to clear sent logs before a given timestamp
+# TODO: add authorization check (should only be for admins)
+@auth_api.route(f"/auth/{AUTH_API_VERSION}/logs/clear", methods=["POST"])
+def clear_sent_logs():
+    """
+    ---
+    tags:
+        - AUTH Server (auth_server)
+    summary: Clear sent logs before a timestamp
+    description: Deletes all logs marked as sent (sent=1) with timestamp before the given timestamp (expected in UTC, no timezone indicators, e.g. "2025-07-21 10:30:45").
+    operationId: clear_sent_logs
+    requestBody:
+        required: true
+        content:
+            application/json:
+                schema:
+                    type: object
+                    properties:
+                        timestamp:
+                            type: string
+                            format: date-time
+                            example: "2025-07-21 10:30:45"
+                    required:
+                        - timestamp
+    responses:
+        200:
+            description: Number of deleted logs
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            deleted:
+                                type: integer
+        400:
+            description: Invalid or missing timestamp
+    """
+    try:
+        # Parse JSON body and extract timestamp
+        data = request.get_json(force=True)
+        timestamp_str: str = data.get("timestamp")
+
+        # Check if timestamp is provided
+        if not timestamp_str:
+            return (
+                jsonify({"error": "Missing 'timestamp' in request body"}),
+                STATUS_CODES["bad_request"],
+            )
+
+        # Parse timestamp as naive datetime in UTC (no timezone info expected)
+        # If there are any indicators (like timezone info or 'Z'), raise an error
+        try:
+            before_timestamp: datetime_obj = datetime_fromisoformat(timestamp_str)
+        except Exception:
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid timestamp format. Use ISO8601 format in UTC (e.g. '2025-07-21 10:30:45') without timezone info."
+                    }
+                ),
+                STATUS_CODES["bad_request"],
+            )
+
+        # Delete logs marked as sent (sent=1) with timestamp before the given UTC timestamp
+        deleted: int = log_interface.clear_sent_logs_before(before_timestamp)
+
+        # Log action with structured data and message ID for observability
+        log(
+            message=f"Cleared {deleted} sent logs before {before_timestamp} (UTC)",
+            level="INFO",
+            sd_tags={"timestamp": timestamp_str},
+            message_id="CLRLOGS",
+        )
+
+        # Return the number of deleted logs in the response
+        return jsonify({"Successfully deleted logs": deleted}), STATUS_CODES["ok"]
+    except Exception as ex:
+        # Log the error with structured data and message ID for observability
+        log(
+            message=f"Internal server occurred while deleting logs (ex: {ex})",
+            level="ERROR",
+            timestamp_str=(
+                {"timestamp_str": timestamp_str}
+                if "timestamp_str" in locals()
+                else None
+            ),
+            message_id="CLRLOGSERR",
+        )
+        # Return a generic error message without exposing internal details, with appropriate status code
+        return (
+            jsonify(
+                {
+                    "Internal server error while deleting logs": "No more information given for security purposes, check logs for further detail"
+                }
+            ),
+            STATUS_CODES["internal_server_error"],
+        )
 
 
 @auth_api.route("/health", methods=["GET"])

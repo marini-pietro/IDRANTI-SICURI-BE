@@ -12,20 +12,21 @@ from os.path import dirname as os_path_dirname
 from os.path import abspath as os_path_abspath
 from os import system as os_system_cmd
 from importlib import import_module
-from venv import logger
 from flask import Flask, jsonify, request, Blueprint
 from flask_jwt_extended import JWTManager
 from flask_marshmallow import Marshmallow
 from flasgger import Swagger
-import re
+from sqlalchemy.exc import OperationalError
+from datetime import fromisoformat as datetime_fromisoformat
+from datetime import datetime as datetime_obj
+from re import sub as re_sub
 import hashlib
 import hmac
 import unicodedata
 import sys
-from sqlalchemy.exc import OperationalError
 
 # Local imports
-from api_blueprints.blueprints_utils import log, is_rate_limited
+from api_blueprints.blueprints_utils import log_interface, log, is_rate_limited
 from models import db
 from api_config import (
     API_SERVER_HOST,
@@ -499,14 +500,14 @@ def _sanitize_callback(callback: object, max_len: int = 200, fp_len: int = 12):
     raw = unicodedata.normalize("NFKC", raw)
 
     # Collapse newlines/tabs into space and remove control characters
-    raw = re.sub(r"[\r\n\t]+", " ", raw)
+    raw = re_sub(r"[\r\n\t]+", " ", raw)
     raw = "".join(ch if unicodedata.category(ch)[0] != "C" else "?" for ch in raw)
 
     # Redact obvious JWTs (three base64url parts) and long base64-like tokens
-    raw = re.sub(
+    raw = re_sub(
         r"[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", "<REDACTED_JWT>", raw
     )
-    raw = re.sub(r"[A-Za-z0-9_\-]{20,}", "<REDACTED_TOKEN>", raw)
+    raw = re_sub(r"[A-Za-z0-9_\-]{20,}", "<REDACTED_TOKEN>", raw)
 
     # Truncate to a safe length for logs
     short = (raw[:max_len] + "...") if len(raw) > max_len else raw
@@ -648,6 +649,105 @@ def custom_revoked_token_response(jwt_header, jwt_payload):
         jsonify(INVALID_JWT_MESSAGES["revoked_token"][0]),
         INVALID_JWT_MESSAGES["revoked_token"][1],
     )
+
+
+# Endpoint to clear sent logs before a given timestamp
+# TODO: add authorization check (should only be for admins)
+@main_api.route(f"/api/{API_VERSION}/logs/clear", methods=["POST"])
+def clear_sent_logs():
+    """
+    ---
+    tags:
+        - API Server (api_server)
+    summary: Clear sent logs before a timestamp
+    description: Deletes all logs marked as sent (sent=1) with timestamp before the given timestamp (expected in UTC, no timezone indicators, e.g. "2025-07-21 10:30:45").
+    operationId: clear_sent_logs
+    requestBody:
+        required: true
+        content:
+            application/json:
+                schema:
+                    type: object
+                    properties:
+                        timestamp:
+                            type: string
+                            format: date-time
+                            example: "2025-07-21 10:30:45"
+                    required:
+                        - timestamp
+    responses:
+        200:
+            description: Number of deleted logs
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            deleted:
+                                type: integer
+        400:
+            description: Invalid or missing timestamp
+    """
+    try:
+        # Parse JSON body and extract timestamp
+        data = request.get_json(force=True)
+        timestamp_str: str = data.get("timestamp")
+
+        # Check if timestamp is provided
+        if not timestamp_str:
+            return (
+                jsonify({"error": "Missing 'timestamp' in request body"}),
+                STATUS_CODES["bad_request"],
+            )
+
+        # Parse timestamp as naive datetime in UTC (no timezone info expected)
+        # If there are any indicators (like timezone info or 'Z'), raise an error
+        try:
+            before_timestamp: datetime_obj = datetime_fromisoformat(timestamp_str)
+        except Exception:
+            return (
+                jsonify(
+                    {
+                        "error": "Invalid timestamp format. Use ISO8601 format in UTC (e.g. '2025-07-21 10:30:45') without timezone info."
+                    }
+                ),
+                STATUS_CODES["bad_request"],
+            )
+
+        # Delete logs marked as sent (sent=1) with timestamp before the given UTC timestamp
+        deleted: int = log_interface.clear_sent_logs_before(before_timestamp)
+
+        # Log action with structured data and message ID for observability
+        log(
+            message=f"Cleared {deleted} sent logs before {before_timestamp} (UTC)",
+            level="INFO",
+            sd_tags={"timestamp": timestamp_str},
+            message_id="CLRLOGS",
+        )
+
+        # Return the number of deleted logs in the response
+        return jsonify({"Successfully deleted logs": deleted}), STATUS_CODES["ok"]
+    except Exception as ex:
+        # Log the error with structured data and message ID for observability
+        log(
+            message=f"Internal server occurred while deleting logs (ex: {ex})",
+            level="ERROR",
+            timestamp_str=(
+                {"timestamp_str": timestamp_str}
+                if "timestamp_str" in locals()
+                else None
+            ),
+            message_id="CLRLOGSERR",
+        )
+        # Return a generic error message without exposing internal details, with appropriate status code
+        return (
+            jsonify(
+                {
+                    "Internal server error while deleting logs": "No more information given for security purposes, check logs for further detail"
+                }
+            ),
+            STATUS_CODES["internal_server_error"],
+        )
 
 
 @main_api.route(f"/api/{API_VERSION}/health", methods=["GET"])
