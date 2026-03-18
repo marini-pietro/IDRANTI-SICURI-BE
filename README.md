@@ -8,7 +8,7 @@ Most probably the platform will also be accessible through a mobile wrapper appl
 
 Services:
 
-- `api_server.py` — main HTTP API that registers blueprints, configures JWT validation and OpenAPI docs (Flasgger). It exposes application endpoints implemented in `api_blueprints/`.
+- `api_server.py` — main HTTP(S) API that registers blueprints, configures JWT validation, describes OpenAPI docs (Flasgger) and adds security pre-checks (e.g. SQL injection check and rate limiting).
   
 - `auth_server.py` — dedicated authentication microservice that verifies passwords and issues JWT access and refresh tokens. It contains the login, token validation and refresh endpoints.
 
@@ -17,14 +17,21 @@ Services:
 Shared components and important files:
 
 - `logging_interface.py` - Streamlined logging interface for services with local file backup in the form of SQLite file databases.  
-It allows tracking of log statistic, better service instance identification, unsent logs tracking and re-sending.  
-Each service communicates to its own logging interface which writer the relevant data to the SQLite database then, periodically, a background threat via query gets the logs that have not been sent from the database and sends as JSON payloads to the syslog server.
-Services sharing an interface will most probably not be necessary but techinically possible, nonetheless the current code (as 09/02/2026) istantiates an interface every time a service is booted up.
+It allows tracking of log statistics, better service instance identification, unsent logs tracking and re-sending.  
+Each service communicates to its own logging interface which writes to a minimal SQLite database, then, periodically, a background threat gets the logs that have not been sent yet from the database and sends them as a JSON to the syslog server.
+Services sharing an interface will most probably not be necessary but still possible with some edits to the logging interface logic.
+Namely, it would be necessary to:
+  - pass the service instance identifier string to the interface when logging (i.e. not at initialization like the current solution)  
+  - store said string in the SQLite database (instead of using a class string variable like the current solution)  
+  - edit the logic that writes, reads and formats the data as JSON data to correctly handle the service instance identifier string being inside of the database  
 
-- `models.py` — SQLAlchemy models for domain objects.  
-Each model includes a `to_dict()` helper for JSON serialization.
 
-- `config.py` — centralized configuration values (jwt settings, DB URI, regex patterns, rate limit parameters, file names and ports).  
+- `models.py` — SQLAlchemy models for database tables.  
+Each model includes a `to_dict()` helper function for JSON serialization.
+
+- `*_config.py` — centralized configuration values (JWT settings, DB URI, regex patterns, rate limit parameters, file names, ports, etc...).  
+To simplify the separation of the services into different machines each service has its own config file only with the values it strictly needs.  
+Because of this some parameters (e.g. ports) must be equal in different config files, during development it's recommended to edit configuration values using codebase-wise search and replace tools (common in any major IDE) (e.g. magnifying glass in the left tool bar in Visual Studio Code).
 Many defaults are development-friendly; override them before production.
 
 - `api_blueprints/` — collection of Flask blueprints and utilities.  
@@ -55,7 +62,7 @@ A more streamlined solution will be researched and implemented in the future.
 ## Log messages
 
 Due to the expected very low throughput of log messages passing through the architecture it has been deemed that no log broker is necessary (indicatively, such solutions start to matter at 100-1000 logs per second).
-Instead an ad-hoc solution consisting of a dedicated interface to a small database built with sqlite3 for each microservice, this way the process of handling unsent logs is greatly simplified and, because of the transactional nature of relational databases, losing data is very unlinkely.
+Instead an ad-hoc solution consisting of a dedicated interface to a small database built with SQLite for each service, this way the process of handling unsent logs is greatly simplified and, because of the transactional nature of relational databases, losing data is very unlinkely.
 To aid in management, each microservice also includes a dedicated endpoint for admin users to clear out sent logs for the sqlite3 database along with the option of programming this to happend periodically.
 
 Each instance of a microservice will need its own instance of the interface, this can be achieved by placing the `logging_interface.py` along with the server source code in each machine that will run the service(s) and instantiating the interface in the server source code through the provied factory function `create_interface` in `logging_interface.py`.
