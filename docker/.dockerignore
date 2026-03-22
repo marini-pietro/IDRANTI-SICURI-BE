@@ -1,0 +1,83 @@
+# Python Compiled Files & Cache
+# Don't include compiled Python bytecode
+__pycache__
+*.py[cod]        # .pyc, .pyo, .pyd files
+*.so              # Compiled extension modules
+
+# pytest and testing cache
+.pytest_cache
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments (development only)
+# These should NEVER be in Docker - dependencies installed during build
+venv/
+env/
+.venv
+.env          # Local .env file (not the .env.example!)
+.env.local
+*.egg
+
+# Version Control & Configuration Management
+.git              # Git repository (not needed in image)
+.gitignore        # Git config (not needed in image)
+.gitattributes    # Git config
+.github/          # GitHub workflows/actions
+.gitlab-ci.yml    # GitLab CI config
+.dockerignore     # This file itself
+
+# IDE & Editor Configuration
+# Exclude development tool configs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store        # macOS metadata
+Thumbs.db        # Windows thumbnail cache
+*.sublime-project
+*.sublime-workspace
+
+# Project-Specific Files
+# Logs and temp files generated during development
+*.log
+logs/            # Development logs
+tmp/
+temp/
+*.tmp
+
+# Test files (not needed in production image)
+tests/
+*_test.py
+test_*.py
+conftest.py
+
+# Documentation
+docs/
+*.md
+README.md
+
+# Development scripts
+developing_scripts/
+*.ps1
+*.sh
+
+# Node/JavaScript artifacts
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Database files (using SQLite for logging interfaces so these are necessary)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS-specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db

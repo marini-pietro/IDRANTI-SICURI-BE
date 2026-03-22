@@ -42,6 +42,8 @@ class SQLiteUDPLogger:
         if db_filename == "":
             db_filename = f"{datetime.utcnow().strftime('%Y-%m-d_%H-%M-%S')}-{self.service_name}-log.db"
 
+        # TODO: fix deprecated usage of datetime.utcnow()
+
         # Always create in idranti-sicuri-logs subdirectory
         current_dir = Path(__file__).parent.absolute()
         logs_dir = current_dir / "idranti-sicuri-logs"

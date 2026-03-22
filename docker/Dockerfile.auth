@@ -1,0 +1,69 @@
+# Dockerfile for Auth Server
+# This Dockerfile packages the IDRANTI SICURI Auth server as a Docker image.
+# The Auth server handles user authentication and JWT token management.
+#
+# Shares the same dependencies and structure as the API server.
+# The only difference is the startup command.
+#
+# Build:
+#   docker build -f docker/Dockerfile.auth -t idranti-auth:latest .
+#
+# Stage 1: Base Image
+FROM python:3.11-slim
+
+# Set working directory inside container
+WORKDIR /app
+
+# Set environment variables:
+# PYTHONUNBUFFERED=1 -> Stream logs in real-time (important for monitoring)
+# PYTHONDONTWRITEBYTECODE=1 -> Reduce image size by not creating .pyc files
+# PIP_NO_CACHE_DIR=1 -> Don't cache pip downloads (saves space)
+# FLASK_ENV=production -> Run Flask in production mode
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    FLASK_ENV=production
+
+# Install system dependencies:
+# Install runtime dependencies needed by Python packages
+# postgresql-client: Provides pg_isready for health checks and database debugging
+# libpq-dev: Required for psycopg2 (PostgreSQL database driver)
+# gcc: C compiler for compiling Python packages with C extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*  # Remove apt cache to minimize layer size
+
+# Copy and install Python dependencies:
+# Copy requirements.txt first for optimal Docker caching
+# This layer only rebuilds if requirements.txt changes
+# Application code changes won't trigger dependency reinstall
+COPY requirements.txt .
+
+# Install all Python packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code:
+# Copy entire project directory
+# Includes: auth_server.py, models.py, shared code, etc.
+COPY . .
+
+# Expose port:
+# Declares that container listens on port 5000
+# Actual port mapping is configured in docker-compose.yml (5001:5000)
+EXPOSE 5000
+
+# Health check:
+# Periodically verify auth server is healthy
+# Checks the /health endpoint to ensure server is responsive
+# If checks fail, Docker marks container as unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Startup command:
+# CMD specifies the default command to run when container starts
+# This starts the Auth server (auth_server.py script)
+# In production, this would typically use a WSGI server like waitress or gunicorn
+# For now, using Python directly (suitable for development)
+CMD ["python", "auth_server.py"]

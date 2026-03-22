@@ -1,0 +1,73 @@
+# Dockerfile for API Server
+#
+# This Dockerfile packages the IDRANTI SICURI API server as a Docker image.
+# The image includes Python, dependencies, and application code.
+#
+# Build:
+#   docker build -f docker/Dockerfile.api -t idranti-api:latest .
+#
+# Run:
+#   docker run -p 5000:5000 --env-file .env idranti-api:latest
+#
+# Stage 1: Base Image
+# Start with official Python 3.11 slim image (smaller than full image)
+# Alpine would be smaller but Python dependencies may not have prebuilt binaries, leading to longer build times and potential compatibility issues.
+FROM python:3.11-slim
+
+# Set working directory inside container
+# All subsequent commands run from this directory
+# Source files will be copied here
+WORKDIR /app
+
+# Set environment variables:
+# PYTHONUNBUFFERED=1: Don't buffer Python output (see logs in real-time)
+# PYTHONDONTWRITEBYTECODE=1: Don't create .pyc files (saves space)
+# PIP_NO_CACHE_DIR=1: Don't cache pip packages (saves space)
+# FLASK_ENV=production: Set Flask environment to production (can be overridden by .env)
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    FLASK_ENV=production
+
+# Install system dependencies:
+# Update package lists and install packages needed by Python dependencies
+# postgresql-client: Provides pg_isready for health checks
+# libpq-dev: Required for psycopg2 (PostgreSQL Python driver)
+# gcc: C compiler for dependencies that need to compile native code
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*  # Clean up package cache to reduce image size
+
+# Copy and install Python dependencies:
+# Copy requirements.txt first (before application code) for better caching
+# If only code changes (not dependencies), Docker reuses this cached layer
+COPY requirements.txt .
+
+# Install Python packages: from requirements.txt
+# Using pip in the container ensures consistent dependency versions
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy Application Code
+# Copy entire project directory into container
+# Includes: api_server.py, models.py, api_blueprints/, etc.
+COPY . .
+
+# Expose port:
+# Document which port the service listens on
+# This doesn't actually publish the port; that's done via docker-compose or -p flag
+EXPOSE 5000
+
+# Health check:
+# Periodically verify the API server is responding
+# Docker can use this to know when service is ready
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/api/v1/health || exit 1
+
+# Startup command:
+# CMD specifies the default command to run when container starts
+# This starts the API server (api_server.py script)
+# In production, this would typically use a WSGI server like waitress or gunicorn
+# For now, using Python directly (suitable for development)
+CMD ["python", "api_server.py"]

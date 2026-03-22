@@ -1,0 +1,233 @@
+# Orchestration of all services required for the backend:
+# - PostgreSQL: Database backend
+# - API Server: Main API service
+# - Auth Server: Authentication microservice
+# - Log Server: Logging microservice
+#
+# Example usage:
+#   docker-compose up -d           # Start all services in background
+#   docker-compose logs -f api     # Follow logs from API service
+#   docker-compose down            # Stop all services
+#   docker-compose down -v         # Stop services and remove volumes (data)
+
+# ${VAR_NAME:-default} syntax allows us to set defaults that can be overridden by .env file or environment variables.
+
+version: '3.8'  # Docker Compose file format version
+
+services:
+  # PostgreSQL Database Service:
+  # Provides persistent relational database for the application.
+  # Uses PostgreSQL built on Alpine Linux image for a smaller footprint.
+  # If running on Windows, ensure Docker Desktop is running Linux containers (with the default setup, usually via WSL2).
+  db:
+    image: postgres:15-alpine
+    container_name: idranti_db
+    
+    # Environment variables for PostgreSQL initialization
+    # These credentials are used for database setup, using ${VAR_NAME} syntax to pull from .env file when parsing.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}           # Database user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # Database password (CHANGE IN .env!)
+      POSTGRES_DB: ${POSTGRES_DB}               # Database name
+    
+    # Port mapping: HOST_PORT:CONTAINER_PORT
+    # Exposes PostgreSQL on localhost:5432 for local development/debugging
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    
+    # Volume mounts for data persistence
+    volumes:
+      # postgres_data: Database files persist even after container stops/restarts
+      # This is a named volume managed by Docker (survives down/up cycles)
+      - postgres_data:/var/lib/postgresql/data
+      
+      # Mount initialization SQL script
+      # Docker automatically runs all .sql files in /docker-entrypoint-initdb.d/ 
+      # on first startup (only if data volume is empty)
+      - ../idranti-sicuri.sql:/docker-entrypoint-initdb.d/init.sql
+    
+    # Health check: Verify database is ready before other services start
+    # This prevents race conditions where API tries to connect before DB is ready
+    healthcheck:
+      # Check if PostgreSQL is accepting connections
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s      # Check every 10 seconds
+      timeout: 5s        # Wait max 5 seconds for check to complete
+      retries: 5         # Mark unhealthy after 5 failed checks
+      start_period: 10s  # Give service 10s to start before first check
+    
+    # Network: Services on same network can reach each other by service name
+    networks:
+      - idranti_network
+
+  # API Server Service (Main REST API)
+  api:
+    # Build from Dockerfile in docker/ folder instead of using pre-built image since we need to install dependencies and copy project files.
+    # context: Where to find files needed for build (project root, for requirements.txt)
+    # dockerfile: Which Dockerfile to use (supports multiple per project)
+    build:
+      context: ..                      # Parent directory (project root)
+      dockerfile: docker/Dockerfile.api # Path to Dockerfile
+    
+    container_name: idranti_api 
+    
+    # This API service depends on database being ready
+    # depends_on with condition ensures DB is healthy before API starts
+    depends_on:
+      db:
+        condition: service_healthy  # Wait for DB healthcheck to pass
+    
+    # Environment variables injected into container
+    # These come from .env file and override defaults
+    environment:
+      # Database connection string
+      # Uses hostname 'db' (service name) instead of localhost
+      # Docker DNS automatically resolves service names on shared network
+      DATABASE_URL: ${DATABASE_URL}
+      
+      # API Server configuration
+      API_SERVER_HOST: ${API_SERVER_HOST:-0.0.0.0}  # Listen on all interfaces (required)
+      API_SERVER_PORT: ${API_SERVER_PORT:-5000}     # Internal port (same as exposed port below)
+      
+      # JWT/Security configuration
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      
+      # SSL configuration (optional)
+      IS_API_SERVER_SSL: ${IS_API_SERVER_SSL:-False}
+      
+      # Flask environment
+      FLASK_ENV: ${FLASK_ENV:-production}
+    
+    # Port mapping: HOST:CONTAINER
+    # Access API from host machine on localhost:5000
+    ports:
+      - "${API_SERVER_PORT:-5000}:${API_SERVER_PORT:-5000}"
+    
+    # Volume mounts for development and logging
+    volumes:
+      # Mount entire project directory for live code reloading (dev mode)
+      # This allows changes on host to reflect immediately in container without rebuild
+      # IMPORTANT:In production, comment this out; rely on image instead
+      - ..:/app
+      
+      # Mount logs directory so logs persist even after container stops
+      # Mandatory for production to ensure logs are not lost; optional for development
+      - api_logs:/app/logs
+    
+    # Network for inter-service communication
+    networks:
+      - idranti_network
+
+  # Auth Server Service (Authentication Microservice)
+  # Handles user authentication, JWT token generation/validation
+  auth:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.auth
+    
+    container_name: idranti_auth
+    
+    # Auth server needs database for user credentials
+    # depends_on with condition ensures it waits for DB to be healthy before starting
+    depends_on:
+      db:
+        condition: service_healthy
+    
+    # Environment variables for auth server configuration
+    # Must match API server for JWT settings to ensure tokens are valid across services
+    # Because of the ${VAR_NAME} syntax, these values are pulled from the .env file when docker-compose parses it.
+    environment:
+      # Database connection
+      DATABASE_URL: ${DATABASE_URL}
+      
+      # Auth server configuration
+      AUTH_SERVER_HOST: ${AUTH_SERVER_HOST:-0.0.0.0}
+      AUTH_SERVER_PORT: ${AUTH_SERVER_PORT:-5001}
+      
+      # JWT configuration (must match API server for token validation)
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-3600}
+      JWT_REFRESH_TOKEN_EXPIRES: ${JWT_REFRESH_TOKEN_EXPIRES:-2592000}
+      
+      # Flask environment
+      FLASK_ENV: ${FLASK_ENV:-production}
+    
+    # Expose on different host port to avoid conflicts
+    # Container and host port are both configurable via AUTH_SERVER_PORT
+    ports:
+      - "${AUTH_SERVER_PORT:-5001}:${AUTH_SERVER_PORT:-5001}"
+    
+    volumes:
+      # Mount entire project directory for live code reloading (dev mode)
+      # This allows changes on host to reflect immediately in container without rebuild
+      # IMPORTANT:In production, comment this out; rely on image instead
+      - ..:/app
+
+      # Mount logs directory so logs persist even after container stops
+      # Mandatory for production to ensure logs are not lost; optional for development
+      - auth_logs:/app/logs
+    
+    networks:
+      - idranti_network
+
+  # Log Server Service (Logging Microservice)
+  # Collects and manages application logs
+  # Receives JSON payloads from the logging interface associated to each service and writes logs to file/console.
+  log:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.log
+    
+    container_name: idranti_log
+    
+    environment:
+      # Log server configuration
+      LOG_SERVER_HOST: ${LOG_SERVER_HOST:-0.0.0.0}
+      LOG_SERVER_PORT: ${LOG_SERVER_PORT:-514}
+      
+      # Flask environment
+      FLASK_ENV: ${FLASK_ENV:-production}
+    
+    # Expose standard syslog UDP port (or LOG_SERVER_PORT override)
+    # On some platforms, binding to low ports (<1024) may require elevated permissions; consider using a higher port if issues arise.
+    ports:
+      - "${LOG_SERVER_PORT:-514}:${LOG_SERVER_PORT:-514}/udp"
+    
+    volumes:
+      - ..:/app
+      - log_logs:/app/logs
+    
+    networks:
+      - idranti_network
+
+# Volumes
+# Named volumes persist data beyond container lifecycle
+# Data is stored on the host machine, managed by Docker
+volumes:
+  postgres_data:
+    # This volume stores PostgreSQL database files
+    # Data survives: container restart, stop/start, down/up
+    # Data is lost only when explicitly removed (docker-compose down -v)
+    driver: local
+  
+  api_logs:
+    # Persistent storage for API server logs
+    driver: local
+  
+  auth_logs:
+    # Persistent storage for Auth server logs
+    driver: local
+  
+  log_logs:
+    # Persistent storage for Log server logs
+    driver: local
+
+# Networks
+# Custom bridge network allows services to communicate by hostname
+# Services on this network can reach each other using service names
+# Example: From API, connect to database using: postgresql://db:5432/...
+networks:
+  idranti_network:
+    driver: bridge  # Bridge driver for local communication
