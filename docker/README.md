@@ -29,7 +29,7 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 **What it does:**
 - Starts with Python 3.11 slim base image
 - Installs system dependencies (PostgreSQL client, C compiler, etc.)
-- Installs Python packages from requirements.txt
+- Installs Python packages from api_requirements.txt
 - Copies application code
 - Sets up health check
 - Configures startup command
@@ -44,7 +44,7 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 **Purpose:** Blueprint for building the Auth server Docker image
 
 **Structure:** Same as Dockerfile.api, differing only in:
-- Input: Still uses same `requirements.txt`
+- Input: Installs Python packages from `auth_requirements.txt`
 - Output: Creates image for auth server instead of API
 - Startup command: Runs `auth_server.py` instead of `api_server.py`
 

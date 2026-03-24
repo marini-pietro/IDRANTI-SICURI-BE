@@ -35,12 +35,14 @@ from api_config import (
     ROLES,
     STATUS_CODES,
     URL_PREFIX,
+    API_SERVER_IDENTIFIER,
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
+    # To lessen verbosity, the prefix "API_SERVER_" is not used for the following logging interface settings,
+    # but, being taken from the api_config module, they are already properly namespaced.
     LOG_INTERFACE_DB_FILENAME,
     LOG_INTERFACE_MAX_RETRIES,
     LOG_INTERFACE_BATCH_DELAY,
-    API_SERVER_IDENTIFIER,
 )
 
 # Initialize logging interface

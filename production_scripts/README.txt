@@ -1,3 +1,5 @@
+N.B.: It is strongly recommended to use Docker in most stages of development (and production of course), these scripts are still featured in the repo to enable development and mantainability in the edge cases when Docker is not available.
+
 All the scripts in this folder are meant to be used in conjuction with the servers running with waitress (it is required that both the relative *_DEBUG_MODE settings in the env file(s) are set to False).
 When running the scripts the terminal will go back to the parent folder, this is done so that waitress can properly detect the python modules whilst also keeping the scripts inside of this folder.
 These scripts are meant to be used to comfortably startup and shutdown the architecture while simulating being production, as in real production all the server will most likely not be on the same machine and, regardless, be managed more firmly with another tool.

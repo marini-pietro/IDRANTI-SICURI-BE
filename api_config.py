@@ -6,6 +6,7 @@ from typing import Dict, Set, Tuple
 from dotenv import load_dotenv
 from datetime import timedelta
 from os import environ as os_environ
+import os.path.is_file as os_path_isfile
 
 try:
     if not load_dotenv():  # Loads .env file if present
@@ -44,7 +45,7 @@ LOG_SERVER_PORT: int = int(
     os_environ.get("LOG_SERVER_PORT", 514)
 )  # port in which the log server listens for UDP syslog messages
 LOG_INTERFACE_DB_FILENAME: str = os_environ.get(
-    "LOG_INTERFACE_DB_FILENAME", ""
+    "API_SERVER_LOG_INTERFACE_DB_FILENAME", ""
 )  # filename for the SQLite database file for logging (no default parameter is given, becuase if it is missing the interface will create a more accurately named DB file based on runtime data such as timestamps)
 LOG_INTERFACE_MAX_RETRIES: int = int(
     os_environ.get("LOG_INTERFACE_MAX_RETRIES", 5)
@@ -97,6 +98,16 @@ API_SERVER_SSL_KEY: str = os_environ.get(
 IS_API_SERVER_SSL: bool = not (
     API_SERVER_SSL_CERT == "" and API_SERVER_SSL_KEY == ""
 )  # Whether the API server uses SSL/TLS or not
+# Validate SSL certificate and key files
+if IS_API_SERVER_SSL:
+    if not os_path_isfile(API_SERVER_SSL_CERT):
+        raise FileNotFoundError(f"SSL certificate file not found: {API_SERVER_SSL_CERT}")
+    if not os_path_isfile(API_SERVER_SSL_KEY):
+        raise FileNotFoundError(f"SSL key file not found: {API_SERVER_SSL_KEY}")
+    if not API_SERVER_SSL_CERT.endswith(('.crt', '.pem', '.cer')):
+        raise ValueError(f"Invalid SSL certificate extension: {API_SERVER_SSL_CERT}")
+    if not API_SERVER_SSL_KEY.endswith(('.key', '.pem')):
+        raise ValueError(f"Invalid SSL key extension: {API_SERVER_SSL_KEY}")
 
 # JWT custom configuration
 JWT_SECRET_KEY: str = os_environ.get(

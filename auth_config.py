@@ -102,8 +102,9 @@ LOG_SERVER_PORT: int = int(
     os_environ.get("LOG_SERVER_PORT", 514)
 )  # port in which the log server listens for UDP syslog messages
 LOG_INTERFACE_DB_FILENAME: str = os_environ.get(
-    "LOG_INTERFACE_DB_FILENAME", ""
-)  # filename for the SQLite database file for logging (no default parameter is given, because if it is missing the interface will create a more accurately named DB file based on runtime data such as timestamps)
+    "AUTH_SERVER_LOG_INTERFACE_DB_FILENAME", ""
+)  # filename for the SQLite database file for logging
+# (no default parameter is given, because if it is missing the interface will create a more accurately named DB file based on runtime data such as timestamps)
 LOG_INTERFACE_MAX_RETRIES: int = int(
     os_environ.get("LOG_INTERFACE_MAX_RETRIES", 5)
 )  # maximum number of retries for logging interface

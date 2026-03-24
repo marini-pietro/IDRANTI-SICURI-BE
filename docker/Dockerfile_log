@@ -1,0 +1,89 @@
+# Dockerfile for Log Server
+# This Dockerfile packages the IDRANTI SICURI Log server as a Docker image.
+# The Log server collects, stores, and provides access to application logs.
+#
+# Same structure as API and Auth servers, with different startup command.
+#
+# Build: docker build -f docker/Dockerfile.log -t idranti-log:latest .
+#
+# Stage 1: Base Image
+FROM python:3.11-slim
+
+# Set working directory (entrypoint for container filesystem)
+WORKDIR /app
+
+# Set environment variables:
+# PYTHONUNBUFFERED=1 -> Stream logs in real-time (important for monitoring)
+# PYTHONDONTWRITEBYTECODE=1 -> Reduce image size by not creating .pyc files
+# PIP_NO_CACHE_DIR=1 -> Don't cache pip downloads (saves space)
+# FLASK_ENV=production -> Run Flask in production mode
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    FLASK_ENV=production
+
+# Install system dependencies:
+# Update package manager and install required system libraries
+# 
+# postgresql-client: Provides CLI tools for PostgreSQL interaction
+#   -> Required for `pg_isready` in health checks
+#   -> Useful for debugging database connectivity
+#
+# libpq-dev: PostgreSQL client library development files
+#   -> Needed by psycopg2 (Python PostgreSQL driver)
+#   -> psycopg2 has C extensions that require this library
+#
+# gcc: GNU C Compiler -> Some Python packages (e.g., cryptography) compile C code
+#
+# Clean up apt cache to reduce final image size (~100MB smaller)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies:
+# Copy only requirements.txt first (optimization for Docker build cache)
+#
+# Why separate? Docker layers are cached independently.
+# If you copy all files first, then install dependencies:
+#   - Any code change invalidates the cache
+#   - Dependencies reinstall unnecessarily (slow)
+# By copying requirements.txt first:
+#   - Only requirements.txt changes trigger dependency rebuild
+#   - Code changes reuse the cached dependency layer (fast)
+#
+COPY log_requirements.txt .
+
+# Install Python packages:
+# --no-cache-dir: Don't keep pip's local cache in final image
+RUN pip install --no-cache-dir -r log_requirements.txt
+
+# Copy Application Code
+# Copy entire project directory into container
+# Includes: log_server.py, models.py, blueprints, config files, etc.
+COPY . .
+
+# Expose port:
+# EXPOSE declares which port(s) the service listens on
+# This is documentation; doesn't actually publish the port
+# Port publication is configured via:
+#   - docker-compose.yml (ports: "5002:5000")
+#   - docker run -p flag
+EXPOSE 5000
+
+# Health check:
+# Allow Docker to verify the Log server is healthy and ready for traffic
+#
+# Check strategy: HTTP GET to /health endpoint
+# --interval=30s: Check every 30 seconds
+# --timeout=10s: Allow 10 seconds for the check to complete
+# --start-period=5s: Give service 5 seconds to start before first check
+# --retries=3: After 3 consecutive failed checks, mark container unhealthy
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Startup command:
+# CMD: Default command executed when container starts
+# Specified as JSON array form (preferred) for signal handling
+CMD ["python", "log_server.py"]

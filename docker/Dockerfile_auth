@@ -36,13 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*  # Remove apt cache to minimize layer size
 
 # Copy and install Python dependencies:
-# Copy requirements.txt first for optimal Docker caching
-# This layer only rebuilds if requirements.txt changes
+# Copy auth_requirements.txt first for optimal Docker caching
+# This layer only rebuilds if auth_requirements.txt changes
 # Application code changes won't trigger dependency reinstall
-COPY requirements.txt .
+COPY auth_requirements.txt .
 
-# Install all Python packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install all Python packages specified in auth_requirements.txt
+RUN pip install --no-cache-dir -r auth_requirements.txt
 
 # Copy application code:
 # Copy entire project directory

@@ -10,9 +10,9 @@
 #   docker-compose down            # Stop all services
 #   docker-compose down -v         # Stop services and remove volumes (data)
 
-# ${VAR_NAME:-default} syntax allows us to set defaults that can be overridden by .env file or environment variables.
+# ${VAR_NAME:-default} syntax allows us to set defaults that can be overridden by .env file or environment variables when parsing.
 
-version: '3.8'  # Docker Compose file format version
+# version attribute is obsolete, so not included
 
 services:
   # PostgreSQL Database Service:
@@ -24,10 +24,9 @@ services:
     container_name: idranti_db
     
     # Environment variables for PostgreSQL initialization
-    # These credentials are used for database setup, using ${VAR_NAME} syntax to pull from .env file when parsing.
     environment:
       POSTGRES_USER: ${POSTGRES_USER}           # Database user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # Database password (CHANGE IN .env!)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # Database password
       POSTGRES_DB: ${POSTGRES_DB}               # Database name
     
     # Port mapping: HOST_PORT:CONTAINER_PORT
@@ -63,11 +62,11 @@ services:
   # API Server Service (Main REST API)
   api:
     # Build from Dockerfile in docker/ folder instead of using pre-built image since we need to install dependencies and copy project files.
-    # context: Where to find files needed for build (project root, for requirements.txt)
-    # dockerfile: Which Dockerfile to use (supports multiple per project)
+    # context: Where to find files needed for build (project root, for api_requirements.txt)
+    # dockerfile: Which Dockerfile to use
     build:
       context: ..                      # Parent directory (project root)
-      dockerfile: docker/Dockerfile.api # Path to Dockerfile
+      dockerfile: docker/Dockerfile_api # Path to Dockerfile
     
     container_name: idranti_api 
     
@@ -93,11 +92,15 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       
-      # SSL configuration (optional)
-      IS_API_SERVER_SSL: ${IS_API_SERVER_SSL:-False}
+      #SSL configuration (optional)
+      AUTH_SERVER_SSL_CERT: ${AUTH_SERVER_SSL_CERT:-}
+      AUTH_SERVER_SSL_KEY: ${AUTH_SERVER_SSL_KEY:-}
+      # IS_API_SERVER_SSL flag is calculated in the code based on presence of cert/key, so no need to set here.
+      # It needs to be calculated in the code for automatic file validation and error handling.
       
-      # Flask environment
-      FLASK_ENV: ${FLASK_ENV:-production}
+      # Flask debug and environment (ensure you are using Flask 2.3+)
+      API_SERVER_DEBUG_MODE: ${API_SERVER_DEBUG_MODE:-0}
+      API_SERVER_RUN_ENV: ${API_SERVER_RUN_ENV:-production}
     
     # Port mapping: HOST:CONTAINER
     # Access API from host machine on localhost:5000
@@ -119,12 +122,12 @@ services:
     networks:
       - idranti_network
 
-  # Auth Server Service (Authentication Microservice)
+  # Auth Server Service (Authentication microservice)
   # Handles user authentication, JWT token generation/validation
   auth:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.auth
+      dockerfile: docker/Dockerfile_auth
     
     container_name: idranti_auth
     
@@ -150,9 +153,14 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRES: ${JWT_ACCESS_TOKEN_EXPIRES:-3600}
       JWT_REFRESH_TOKEN_EXPIRES: ${JWT_REFRESH_TOKEN_EXPIRES:-2592000}
+
+      #SSL configuration (optional)
+      AUTH_SERVER_SSL_CERT: ${AUTH_SERVER_SSL_CERT:-}
+      AUTH_SERVER_SSL_KEY: ${AUTH_SERVER_SSL_KEY:-}
       
-      # Flask environment
-      FLASK_ENV: ${FLASK_ENV:-production}
+      # Flask debug and environment (ensure you are using Flask 2.3+)
+      AUTH_SERVER_DEBUG_MODE: ${AUTH_SERVER_DEBUG_MODE:-0}
+      AUTH_SERVER_RUN_ENV: ${AUTH_SERVER_RUN_ENV:-production}
     
     # Expose on different host port to avoid conflicts
     # Container and host port are both configurable via AUTH_SERVER_PORT
@@ -172,13 +180,13 @@ services:
     networks:
       - idranti_network
 
-  # Log Server Service (Logging Microservice)
+  # Log Server Service (Logging microservice)
   # Collects and manages application logs
   # Receives JSON payloads from the logging interface associated to each service and writes logs to file/console.
   log:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.log
+      dockerfile: docker/Dockerfile_log
     
     container_name: idranti_log
     
@@ -186,9 +194,8 @@ services:
       # Log server configuration
       LOG_SERVER_HOST: ${LOG_SERVER_HOST:-0.0.0.0}
       LOG_SERVER_PORT: ${LOG_SERVER_PORT:-514}
-      
-      # Flask environment
-      FLASK_ENV: ${FLASK_ENV:-production}
+
+      # No need for Flask configuration since log server is a UDP listener, not a Flask app.
     
     # Expose standard syslog UDP port (or LOG_SERVER_PORT override)
     # On some platforms, binding to low ports (<1024) may require elevated permissions; consider using a higher port if issues arise.

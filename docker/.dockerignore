@@ -1,4 +1,4 @@
-# Python Compiled Files & Cache
+# Python compiled files & Cache
 # Don't include compiled Python bytecode
 __pycache__
 *.py[cod]        # .pyc, .pyo, .pyd files
@@ -13,17 +13,17 @@ dist/
 build/
 
 # Virtual environments (development only)
-# These should NEVER be in Docker - dependencies installed during build
+# No need in Docker as dependencies are installed during build
 venv/
 env/
 .venv
-.env          # Local .env file (not the .env.example!)
+.env
 .env.local
 *.egg
 
-# Version Control & Configuration Management
-.git              # Git repository (not needed in image)
-.gitignore        # Git config (not needed in image)
+# Version control & configuration management
+.git              # Git repository
+.gitignore        # Git config
 .gitattributes    # Git config
 .github/          # GitHub workflows/actions
 .gitlab-ci.yml    # GitLab CI config
@@ -41,15 +41,16 @@ Thumbs.db        # Windows thumbnail cache
 *.sublime-project
 *.sublime-workspace
 
-# Project-Specific Files
+# Project specific files
 # Logs and temp files generated during development
+*log.txt
 *.log
-logs/            # Development logs
+logs/
 tmp/
 temp/
 *.tmp
 
-# Test files (not needed in production image)
+# Test files
 tests/
 *_test.py
 test_*.py
@@ -70,7 +71,8 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
-# Database files (using SQLite for logging interfaces so these are necessary)
+# Database files
+# (intermediary SQLite database files are handled in named volumes so they are persistent across container events)
 *.db
 *.sqlite
 *.sqlite3
