@@ -1,0 +1,9 @@
+flask
+flask-jwt-extended
+flask-marshmallow
+requests
+cryptography
+flask-sqlalchemy
+psycopg2-binary
+marshmallow-sqlalchemy
+python-dotenv
