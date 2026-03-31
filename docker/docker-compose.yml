@@ -5,7 +5,7 @@
 # - Log Server: Logging microservice
 #
 # Example usage:
-#   docker-compose up -d           # Start all services in background
+#   docker-compose --env-file .env -f docker/docker-compose.yml up -d # Start all services in detached mode (run from project root)
 #   docker-compose logs -f api     # Follow logs from API service
 #   docker-compose down            # Stop all services
 #   docker-compose down -v         # Stop services and remove volumes (data)
@@ -25,14 +25,14 @@ services:
     
     # Environment variables for PostgreSQL initialization
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}           # Database user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}   # Database password
-      POSTGRES_DB: ${POSTGRES_DB}               # Database name
+      POSTGRES_USER: ${DB_USER}           # Database user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}   # Database password
+      POSTGRES_DB: ${DB_NAME}               # Database name
     
     # Port mapping: HOST_PORT:CONTAINER_PORT
     # Exposes PostgreSQL on localhost:5432 for local development/debugging
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${DB_PORT:-5432}:5432"
     
     # Volume mounts for data persistence
     volumes:
@@ -40,16 +40,16 @@ services:
       # This is a named volume managed by Docker (survives down/up cycles)
       - postgres_data:/var/lib/postgresql/data
       
-      # Mount initialization SQL script
+      # Mount initialization SQL script (sql/init.sql)
       # Docker automatically runs all .sql files in /docker-entrypoint-initdb.d/ 
       # on first startup (only if data volume is empty)
-      - ../idranti-sicuri.sql:/docker-entrypoint-initdb.d/init.sql
+      - ../sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     
     # Health check: Verify database is ready before other services start
     # This prevents race conditions where API tries to connect before DB is ready
     healthcheck:
       # Check if PostgreSQL is accepting connections
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s      # Check every 10 seconds
       timeout: 5s        # Wait max 5 seconds for check to complete
       retries: 5         # Mark unhealthy after 5 failed checks
@@ -82,7 +82,7 @@ services:
       # Database connection string
       # Uses hostname 'db' (service name) instead of localhost
       # Docker DNS automatically resolves service names on shared network
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DB_URL}
       
       # API Server configuration
       API_SERVER_HOST: ${API_SERVER_HOST:-0.0.0.0}  # Listen on all interfaces (required)
@@ -142,7 +142,7 @@ services:
     # Because of the ${VAR_NAME} syntax, these values are pulled from the .env file when docker-compose parses it.
     environment:
       # Database connection
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DB_URL}
       
       # Auth server configuration
       AUTH_SERVER_HOST: ${AUTH_SERVER_HOST:-0.0.0.0}

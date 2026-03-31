@@ -1,8 +1,8 @@
-# Docker Configuration for IDRANTI SICURI
+# Docker configuration for IDRANTI SICURI backend
 
 This directory contains all Docker-related configuration files for the IDRANTI SICURI backend application.
 
-## Files Overview
+## Files overview
 
 ### `docker-compose.yml`
 **Purpose:** Orchestrates all services (API, Auth, Log and database)
@@ -21,7 +21,6 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 - **depends_on:** Controls startup order and waits for dependencies
 - **environment:** Inject configuration from `.env` file
 
----
 
 ### `Dockerfile.api`
 **Purpose:** Blueprint for building the API server Docker image
@@ -38,7 +37,6 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 - Docker Compose builds this when you run `docker-compose up` for the first time
 - Each service gets its own Dockerfile (named Dockerfile.{service}: Dockerfile.api, Dockerfile.auth, Dockerfile.log)
 
----
 
 ### `Dockerfile.auth`
 **Purpose:** Blueprint for building the Auth server Docker image
@@ -48,7 +46,6 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 - Output: Creates image for auth server instead of API
 - Startup command: Runs `auth_server.py` instead of `api_server.py`
 
----
 
 ### `Dockerfile.log`
 **Purpose:** Blueprint for building the Log server Docker image
@@ -56,7 +53,6 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 **Structure:** Same as Dockerfile.api, differing only in:
 - Startup command: Runs `log_server.py` instead of `api_server.py`
 
----
 
 ### `.dockerignore`
 **Purpose:** Specifies which files to exclude from Docker image builds
@@ -74,61 +70,36 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 - Test files
 - Local `.env` file (security!)
 
----
-
 ### `.env.example`
 **Purpose:** Template for environment variables needed by all services
 
-**What it contains:**
-- Database credentials (username, password, connection URL)
-- API server settings (host, port, debug mode)
-- JWT/authentication configuration (secret key, expiry times)
-- Optional settings (SSL, logging, rate limiting)
-
-**How to use:**
-```bash
-# Copy to .env (in project root or docker/ folder)
-cp docker/.env.example .env
-
-# Edit .env with actual values for your environment
-# Never commit .env to git!
-# Add to .gitignore: echo ".env" >> .gitignore
-```
-
----
-
-## Quick Start Guide
+## Quick start guide
 
 ### Prerequisites
 - Docker Desktop installed on your machine
 - Project cloned with all source files
 
-### 1. Setup Environment Variables
+### 1. Setup environment variables
 ```bash
 # Copy template to actual .env file
 cp docker/.env.example .env
 
 # Edit .env with your environment-specific values
-# Critical changes:
-# - POSTGRES_PASSWORD: Change from "change_me_in_production" to a strong password
-# - JWT_SECRET_KEY: Generate a random key (see .env.example for how)
 ```
 
-### 2. Build and Start Services
+### 2. Build and start services
 ```bash
-# Navigate to docker folder
-cd docker
-
-# Build images and start all services in background
-docker-compose up -d
+# From project root, build images and start all services in background
+docker/run_compose.sh up -d      # Linux/macOS
+docker\\run_compose.bat up -d   # Windows CMD
 
 # Verify all services are running
-docker-compose ps
+docker compose ps
 
-# Expected output: All services should show "Up" status
+# Expected output: All services should show "Up" status for each container
 ```
 
-### 3. Verify Services
+### 3. Verify services health
 ```bash
 # Check API server is healthy
 curl http://localhost:5000/api/v1/health
@@ -142,31 +113,38 @@ curl http://localhost:5002/health
 # Expected response: {"status": "ok"}
 ```
 
-### 4. View Logs
+### 4. View logs (optional)
 ```bash
 # Follow API server logs in real-time
-docker-compose logs -f api
+docker/run_compose.sh logs -f api      # Linux/macOS
+docker\\run_compose.bat logs -f api   # Windows CMD
 
 # Follow all services
-docker-compose logs -f
+docker/run_compose.sh logs -f          # Linux/macOS
+docker\\run_compose.bat logs -f       # Windows CMD
 
 # View only recent logs (switch to different service)
-docker-compose logs api          # API logs
-docker-compose logs auth         # Auth logs
-docker-compose logs log          # Log logs
-docker-compose logs db           # Database logs
+docker/run_compose.sh logs api         # API logs (Linux/macOS)
+docker/run_compose.sh logs auth        # Auth logs (Linux/macOS)
+docker/run_compose.sh logs log         # Log logs (Linux/macOS)
+docker/run_compose.sh logs db          # Database logs (Linux/macOS)
+
+docker\\run_compose.bat logs api      # API logs (Windows CMD)
+docker\\run_compose.bat logs auth     # Auth logs (Windows CMD)
+docker\\run_compose.bat logs log      # Log logs (Windows CMD)
+docker\\run_compose.bat logs db       # Database logs (Windows CMD)
 ```
 
-### 5. Stop Services
+### 5. Stop services
 ```bash
 # Stop all services (keeps data/logs)
-docker-compose down
+docker/run_compose.sh down        # Linux/macOS
+docker\\run_compose.bat down     # Windows CMD
 
 # Stop and remove all data (fresh start next time)
-docker-compose down -v
+docker/run_compose.sh down -v     # Linux/macOS
+docker\\run_compose.bat down -v  # Windows CMD
 ```
-
----
 
 ## Common Docker Compose Commands
 
@@ -187,13 +165,13 @@ docker-compose down -v
 
 ## Accessing Services
 
-### From Outside Docker (Your Host Machine)
+### From Outside Docker (host Machine)
 - **API Server:** http://localhost:5000
 - **Auth Server:** http://localhost:5001
 - **Log Server:** http://localhost:5002
 - **Database:** localhost:5432 (use psql client)
 
-### From Inside Docker (Between Containers)
+### From Inside Docker (between containers)
 Services use service names defined in docker-compose.yml:
 - **API Server:** http://api:5000
 - **Auth Server:** http://auth:5000
@@ -204,32 +182,6 @@ Example: In API code, connect to DB using `db` instead of `localhost`:
 ```python
 DATABASE_URL = "postgresql://user:password@db:5432/idranti_db"
 ```
-
----
-
-## Development vs Production
-
-### Development Setup (Current)
-✓ Good for:
-- Local testing and debugging
-- Rapid code iteration
-- See logs in real-time
-
-Features:
-- `volumes: - ..:/app` mounts code for live reload
-- `API_SERVER_DEBUG_MODE=False` (set to True for hot reload)
-- Database can be inspected easily
-
-### Production Setup (Different)
-Would differ in these ways:
-- Remove volume mounts (use built image, not live code)
-- Set `DEBUG_MODE=False`
-- Use production WSGI server (gunicorn, waitress)
-- Add reverse proxy (nginx) for SSL
-- Add secrets manager instead of .env file
-- Use managed database (RDS, etc.) outside Docker
-
----
 
 ## Troubleshooting
 
@@ -281,9 +233,8 @@ docker image prune
 
 ---
 
-## Volume and Data Persistence
+## Volume and data persistence
 
-### Named Volumes
 ```bash
 # List all volumes
 docker volume ls
@@ -299,19 +250,3 @@ docker volume prune
 ```
 
 PostgreSQL data is stored in `postgres_data` volume. Even after `docker-compose down`, data persists. Only `docker-compose down -v` deletes it.
-
----
-
-## Environment Variable Reference
-
-See `.env.example` for complete documentation of all variables.
-
-**Critical variables:**
-- `POSTGRES_PASSWORD` - Database security
-- `JWT_SECRET_KEY` - Authentication security
-- `DATABASE_URL` - Connection string (format: protocol://user:pass@host:port/db)
-
-**Service configuration:**
-- `API_SERVER_HOST` - Should be `0.0.0.0` in Docker
-- `API_SERVER_PORT` - Container internal port
-- Actual host port mapped in `docker-compose.yml` ports section
