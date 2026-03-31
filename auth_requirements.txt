@@ -3,6 +3,7 @@ flask-jwt-extended
 flask-marshmallow
 requests
 cryptography
+cachetools
 flask-sqlalchemy
 psycopg2-binary
 marshmallow-sqlalchemy

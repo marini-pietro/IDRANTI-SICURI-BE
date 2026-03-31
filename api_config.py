@@ -6,7 +6,7 @@ from typing import Dict, Set, Tuple
 from dotenv import load_dotenv
 from datetime import timedelta
 from os import environ as os_environ
-import os.path.is_file as os_path_isfile
+from os.path import isfile as os_path_isfile
 
 try:
     if not load_dotenv():  # Loads .env file if present

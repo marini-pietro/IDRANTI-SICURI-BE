@@ -17,7 +17,6 @@ from flask_jwt_extended import JWTManager
 from flask_marshmallow import Marshmallow
 from flasgger import Swagger
 from sqlalchemy.exc import OperationalError
-from datetime import fromisoformat as datetime_fromisoformat
 from datetime import datetime as datetime_obj
 from re import sub as re_sub
 import hashlib
@@ -703,7 +702,7 @@ def clear_sent_logs():
         # Parse timestamp as naive datetime in UTC (no timezone info expected)
         # If there are any indicators (like timezone info or 'Z'), raise an error
         try:
-            before_timestamp: datetime_obj = datetime_fromisoformat(timestamp_str)
+            before_timestamp: datetime_obj = datetime_obj.fromisoformat(timestamp_str)
         except Exception:
             return (
                 jsonify(

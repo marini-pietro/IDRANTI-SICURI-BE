@@ -83,6 +83,7 @@ class SQLiteUDPLogger:
                     message TEXT NOT NULL,
                     tags TEXT,
                     message_id TEXT,
+                    source TEXT,
                     
                     -- Delivery tracking
                     sent INTEGER DEFAULT 0,
@@ -99,6 +100,12 @@ class SQLiteUDPLogger:
                 )
             """
             )
+
+            # Ensure "source" column exists on older databases
+            cursor = conn.execute("PRAGMA table_info(logs)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if "source" not in columns:
+                conn.execute("ALTER TABLE logs ADD COLUMN source TEXT")
 
             # Create indexes for efficient querying of unsent logs and stats
             conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_sent ON logs(sent)")
@@ -152,6 +159,7 @@ class SQLiteUDPLogger:
         sd_tags: Optional[Dict[str, Any]] = None,
         message_id: Optional[str] = None,
         priority: int = 0,
+        source: Optional[str] = None,
     ) -> int:
         """
         Store a log message in SQLite.
@@ -175,6 +183,7 @@ class SQLiteUDPLogger:
             "message": message,
             "message_id": message_id,
             "tags": json.dumps(sd_tags) if sd_tags else None,
+            "source": source,
             "priority": priority,
         }
 
@@ -191,6 +200,7 @@ class SQLiteUDPLogger:
                     log_entry["level"],
                     log_entry["message"],
                     log_entry["tags"],
+                    log_entry["source"],
                     log_entry["priority"],
                 ),
             )

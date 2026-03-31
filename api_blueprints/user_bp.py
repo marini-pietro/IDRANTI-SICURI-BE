@@ -617,12 +617,16 @@ class UserLogin(Resource):
         password: str = data["password"]
 
         try:
-            # Forward login request to the authentication service
-            response = requests_post(
-                f"{"https" if IS_AUTH_SERVER_SSL else "http"}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/login",
-                json={"email": email, "password": password},
-                timeout=5,
-            )
+          # Forward login request to the authentication service
+          scheme = "https" if IS_AUTH_SERVER_SSL else "http"
+          auth_login_url = (
+            f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/login"
+          )
+          response = requests_post(
+            auth_login_url,
+            json={"email": email, "password": password},
+            timeout=5,
+          )
         except RequestException as ex:
 
             # Log the error
