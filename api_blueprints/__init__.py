@@ -1,7 +1,14 @@
+"""
+This module is responsible for exposing all the blueprints in the current
+directory (api_blueprints) so that they can be easily imported in the main
+script (api_server.py) and used as blueprints.
+"""
+
 from os.path import dirname as os_path_dirname
 from os import listdir as os_listdir
 
-# Script that through the __all__ variable exposes all the modules in the current directory in the directory (made a package by this __init__.py file)
+# Script that through the __all__ variable exposes all the modules
+# in the current directory in the directory (made a package by this __init__.py file)
 # so that they can be easily imported in the main script (api_server.py) and used as blueprints.
 
 __all__ = []

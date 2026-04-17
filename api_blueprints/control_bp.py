@@ -5,24 +5,24 @@ This module provides endpoints to create, read, update, and delete control recor
 
 # Library imports
 from os.path import basename as os_path_basename
+from typing import Dict, Union, Any
 from flask import Blueprint, request, Response
 from flask_restful import Api, Resource
 from flask_jwt_extended import jwt_required
-from typing import Dict, Union, Any
 from marshmallow import fields, ValidationError
-from .blueprints_utils import (
-    check_authorization,
-    log,
-    create_response,
-    get_hateos_location_string,
-    handle_options_request,
-)
 
 # Local imports
 from api_server import ma
 from models import db, Control, Hydrant
 from api_config import (
     STATUS_CODES,
+)
+from .blueprints_utils import (
+    check_authorization,
+    log,
+    create_response,
+    get_hateos_location_string,
+    handle_options_request,
 )
 
 # Define constants

@@ -7,19 +7,20 @@ It also handles delayed logs when the rate limit is exceeded.
 
 # Library imports
 import logging
-import time
-import threading
-import selectors
-import socket as socket_lib
-from datetime import datetime
-from collections import defaultdict, deque
+from time import sleep as time_sleep
+from threading import Thread, Lock, Event as threading_Event
 from typing import List, Tuple, Deque, Optional
-from threading import Thread, Lock
-from cachetools import TTLCache
+from json import loads as json_loads
+from json import JSONDecodeError
 from os.path import abspath as os_path_abspath
 from os.path import dirname as os_path_dirname
 from os.path import join as os_path_join
-import json
+import socket as socket_lib
+from selectors import DefaultSelector as selectors_DefaultSelector
+from selector import EVENT_READ as selectors_EVENT_READ
+from datetime import datetime
+from collections import defaultdict, deque
+from cachetools import TTLCache
 
 # Local imports
 from log_config import (
@@ -36,12 +37,6 @@ from log_config import (
     LOG_SERVER_RATE_LIMIT_CACHE_SIZE,
     LOG_SERVER_RATE_LIMIT_CACHE_TTL,
 )
-
-# Replace file-based rate-limiting with TTLCache
-rate_limit_cache = TTLCache(
-    maxsize=LOG_SERVER_RATE_LIMIT_CACHE_SIZE, ttl=LOG_SERVER_RATE_LIMIT_CACHE_TTL
-)  # Cache with a TTL equal to the time window
-rate_limit_lock = Lock()  # Lock for thread-safe file access
 
 
 # Define the logger class
@@ -119,7 +114,7 @@ logger = Logger(
 )
 
 # Add a shutdown flag
-shutdown_flag: threading.Event = threading.Event()
+shutdown_flag: threading_Event = threading_Event()
 
 
 def start_syslog_server(host: str, port: int) -> None:
@@ -153,7 +148,7 @@ def start_syslog_server(host: str, port: int) -> None:
         a KeyboardInterrupt occurs.
     """
 
-    socket_selector = selectors.DefaultSelector()
+    socket_selector = selectors_DefaultSelector()
     sockets: List[Optional[socket_lib.socket]] = []
 
     # Helper to attempt bind for a specific address family
@@ -216,7 +211,8 @@ def start_syslog_server(host: str, port: int) -> None:
         print(f"Syslog server bound to IPv4 only, listening on {host}:{port}")
     if not sockets:
         print(
-            f"Failed to bind both UDP sockets on {host}:{port}\nIs another instance of the log server already running or is the port in use?"
+            f"Failed to bind both UDP sockets on {host}:{port}\n"
+            "Is another instance of the log server already running or is the port in use?"
         )
         return
 
@@ -225,7 +221,7 @@ def start_syslog_server(host: str, port: int) -> None:
             False
         )  # Make socket non-blocking (I/O calls won't block the thread execution)
         socket_selector.register(
-            socket, selectors.EVENT_READ
+            socket, selectors_EVENT_READ
         )  # Register socket for read events
 
     try:
@@ -240,7 +236,8 @@ def start_syslog_server(host: str, port: int) -> None:
                     data, addr = sock.recvfrom(
                         65535
                     )  # buffer size set to maximum UDP size to reduce risk of truncation
-                    # UPD related fragmentation can still occur; handling of fragmented messages is not implemented
+                    # UPD related fragmentation can still occur;
+                    # handling of fragmented messages is not implemented
                     # becuase of the low likelihood of occurrence in typical syslog use cases
                 except OSError:
                     # Socket error — skip this socket for now
@@ -288,17 +285,18 @@ def start_syslog_server(host: str, port: int) -> None:
         logger.close()  # Close the logger
 
 
-# Queue to store delayed logs
-delayed_logs: Deque[Tuple[str, tuple]] = deque(
-    maxlen=DELAYED_LOGS_QUEUE_SIZE
-)  # Limit the size of the queue to avoid memory issues
-queue_lock = Lock()  # Lock to ensure thread-safe access to the queue
+# TTL cache to track request counts for rate limiting (keyed by client IP)
+rate_limit_cache = TTLCache(
+    maxsize=LOG_SERVER_RATE_LIMIT_CACHE_SIZE, ttl=LOG_SERVER_RATE_LIMIT_CACHE_TTL
+)
+rate_limit_lock = Lock()  # Lock for thread-safe file access
 
 
 def enforce_rate_limit(client_ip: str) -> bool:
     """
     Check if the client IP is rate-limited using an in-memory TTLCache.
-    (This function will return true (the rate has been exceeded) on the exact request that matches the limit, i.e. the 100th request is the limit is 100 requests per time window)
+    (This function will return true (the rate has been exceeded) on the exact request
+    that matches the limit, i.e. the 100th request is the limit is 100 requests per time window)
     """
 
     with rate_limit_lock:
@@ -313,6 +311,17 @@ def enforce_rate_limit(client_ip: str) -> bool:
 
         # Check if the rate limit is exceeded
         return client_data["count"] > LOG_SERVER_RATE_LIMIT_MAX_REQUESTS
+
+
+# Only create the deque and lock for delayed logs if the feature
+# is enabled to avoid unnecessary resource usage when it's not needed
+if RETAIN_LOGS_RATE_LIMIT_TRIGGER is True:
+
+    # Queue to store delayed logs
+    delayed_logs: Deque[Tuple[str, tuple]] = deque(
+        maxlen=DELAYED_LOGS_QUEUE_SIZE
+    )  # Limit the size of the queue to avoid memory issues
+    queue_lock = Lock()  # Lock to ensure thread-safe access to the queue
 
 
 def syslog_message_preprocessing(message: str, addr: tuple) -> None:
@@ -339,7 +348,7 @@ def syslog_message_preprocessing(message: str, addr: tuple) -> None:
             # Add the log to the delayed queue instead of dropping it (if enabled)
             if RETAIN_LOGS_RATE_LIMIT_TRIGGER is True:
                 with queue_lock:
-                    delayed_logs.append((message))
+                    delayed_logs.append((message, addr))
 
             # Log the rate limit event if enabled
             if LOG_RATE_LIMIT_TRIGGER_EVENTS is True:
@@ -365,7 +374,7 @@ def _process_message(message: str) -> None:
     """
     try:
         # Parse the message as JSON
-        log_data = json.loads(message)
+        log_data = json_loads(message)
 
         # Extract fields from JSON
         level = log_data.get("level", "INFO").upper()
@@ -409,7 +418,8 @@ def _process_message(message: str) -> None:
             # of the logging interface not the original sender of the log message
             # so those kind of values must be passed as part of the tags by the logging interface itself if needed
 
-            structured_data = f'[{service}@32473 {" ".join(sd_elements)}]'  # Format final structured data string
+            # Format final structured data string
+            structured_data = f'[{service}@32473 {" ".join(sd_elements)}]'
 
         # Create RFC 5424 formatted message
         # 1 is the version of the syslog protocol (RFC 5424 always uses version 1)
@@ -422,18 +432,18 @@ def _process_message(message: str) -> None:
             origin=LOG_SERVER_IDENTIFIER,
         )
 
-    except json.JSONDecodeError:
+    except JSONDecodeError:
         # Log a warning for invalid JSON messages
         logger.log(
             log_type="warning",
             message=f"Invalid JSON message received: {message}",
             origin=LOG_SERVER_IDENTIFIER,
         )
-    except Exception as e:
+    except Exception as ex:
         # Log any other parsing errors
         logger.log(
             log_type="error",
-            message=f"Error processing message: {e}. Message: {message}",
+            message=f"Error processing message: {ex}. Message: {message}",
             origin=LOG_SERVER_IDENTIFIER,
         )
 
@@ -449,15 +459,19 @@ def process_delayed_logs() -> None:
     while not shutdown_flag.is_set():  # Check the shutdown flag
         with queue_lock:
             if delayed_logs:
-                message, addr = delayed_logs.popleft()
-                _process_message(message, addr)
+                # Dequeue the oldest delayed log
+                # (address is not used in processing but could be logged if needed)
+                message, _addr = delayed_logs.popleft()
+                _process_message(message)
 
-        time.sleep(0.1)  # Adjust the sleep interval as needed
+        time_sleep(0.1)  # Adjust the sleep interval as needed
 
 
 # Start a background thread to process delayed logs
-# This thread runs as a daemon so it will not block program exit
-Thread(target=process_delayed_logs, daemon=True).start()
+# Set to behave as a daemon so it will not block program exit
+# (in that case, all remaining delayed logs will be lost on shutdown)
+if RETAIN_LOGS_RATE_LIMIT_TRIGGER is True:
+    Thread(target=process_delayed_logs, daemon=True).start()
 
 if __name__ == "__main__":
 

@@ -5,10 +5,11 @@ Aimed at production use in very low-volume architectures.
 
 # Standard library imports
 import sqlite3
-import json
+from json import loads as json_loads
+from json import dumps as json_dumps
 import socket
 import threading
-import time
+from time import sleep as time_sleep
 from contextlib import contextmanager as contextlib_contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -38,7 +39,8 @@ class SQLiteUDPLogger:
         self.retry_delay = retry_delay
 
         # If no explicit DB path, create one with timestamp and service name
-        # Couldn't be in default params because datetime.utcnow() needs to be called at init time and service_name is needed
+        # Couldn't be in default params because datetime.utcnow() needs
+        # to be called at init time and service_name is needed
         if db_filename == "":
             db_filename = f"{datetime.utcnow().strftime('%Y-%m-d_%H-%M-%S')}-{self.service_name}-log.db"
 
@@ -182,7 +184,7 @@ class SQLiteUDPLogger:
             "level": level,
             "message": message,
             "message_id": message_id,
-            "tags": json.dumps(sd_tags) if sd_tags else None,
+            "tags": json_dumps(sd_tags) if sd_tags else None,
             "source": source,
             "priority": priority,
         }
@@ -268,7 +270,7 @@ class SQLiteUDPLogger:
         """Send a single log to syslog via UDP"""
         try:
             # Parse tags
-            tags = json.loads(tags_str) if tags_str else {}
+            tags = json_loads(tags_str) if tags_str else {}
 
             # Create a simple data structure with the log information
             log_data = {
@@ -281,7 +283,7 @@ class SQLiteUDPLogger:
             }
 
             # Convert to JSON for transmission
-            json_data = json.dumps(log_data)
+            json_data = json_dumps(log_data)
 
             # Send via UDP
             self.socket.sendto(
@@ -380,7 +382,7 @@ class SQLiteUDPLogger:
                         )
 
                         # Small delay between sends (optional)
-                        time.sleep(0.1)
+                        time_sleep(0.1)
 
                 # Update pending count
                 with self._get_connection() as conn:
@@ -389,18 +391,19 @@ class SQLiteUDPLogger:
 
                 # Wait before next check (longer if nothing to send)
                 sleep_time = 5 if unsent_logs else self.retry_delay
-                time.sleep(sleep_time)
+                time_sleep(sleep_time)
 
             except Exception as ex:
                 print(f"Error in sender loop: {ex}")
-                time.sleep(30)  # Wait half a minute on error to avoid tight loops
+                time_sleep(30)  # Wait half a minute on error to avoid tight loops
 
     def start(self):
         """Start the background sender thread"""
         self.running = True
         self.sender_thread.start()
         print(
-            f"Logger started for {self.service_name}, sending to {self.syslog_host}:{self.syslog_port}"
+            f"Logger started for {self.service_name}, sending "
+            f"to {self.syslog_host}:{self.syslog_port}"
         )
 
     def stop(self):
@@ -519,7 +522,7 @@ class SQLiteUDPLogger:
             for row in rows:
                 log_dict = dict(zip(column_names, row))
                 if log_dict.get("tags"):
-                    log_dict["tags"] = json.loads(log_dict["tags"])
+                    log_dict["tags"] = json_loads(log_dict["tags"])
                 results.append(log_dict)
 
             return results

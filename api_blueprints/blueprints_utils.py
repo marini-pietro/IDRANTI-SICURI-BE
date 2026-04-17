@@ -38,7 +38,8 @@ from api_config import (
     API_SERVER_IDENTIFIER,
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
-    # To lessen verbosity, the prefix "API_SERVER_" is not used for the following logging interface settings,
+    # To lessen verbosity, the prefix "API_SERVER_"
+    # is not used for the following logging interface settings,
     # but, being taken from the api_config module, they are already properly namespaced.
     LOG_INTERFACE_DB_FILENAME,
     LOG_INTERFACE_MAX_RETRIES,
@@ -62,7 +63,7 @@ print("Logging interface background thread started successfully.")
 
 log = (
     log_interface.log
-)  # Get the log method from the interface for easy use in the API server code
+)  # Effectively rename the log method from the interface for better readability in the code
 
 # Authentication related
 # Cache for token validation results

@@ -6,6 +6,13 @@ Also provides a health check endpoint.
 
 # Library imports
 from typing import Union, List, Dict, Any, Tuple, Optional
+from datetime import datetime as datetime_obj
+from re import sub as re_sub
+from hashlib import sha256 as hashlib_sha256
+from hmac import new as hmac_new
+from unicodedata import normalize as unicodedata_normalize
+from unicodedata import category as unicodedata_category
+from sys import exit as sys_exit
 from os import listdir as os_listdir
 from os.path import join as os_path_join
 from os.path import dirname as os_path_dirname
@@ -17,12 +24,6 @@ from flask_jwt_extended import JWTManager
 from flask_marshmallow import Marshmallow
 from flasgger import Swagger
 from sqlalchemy.exc import OperationalError
-from datetime import datetime as datetime_obj
-from re import sub as re_sub
-import hashlib
-import hmac
-import unicodedata
-import sys
 
 # Local imports
 from api_blueprints.blueprints_utils import log_interface, log, is_rate_limited
@@ -438,7 +439,8 @@ def _enforce_rate_limit() -> Optional[Tuple[Any, int]]:
     """
     Helper: enforce rate limiting for incoming requests.
     Uses `is_rate_limited` function imported from `api_blueprints.blueprints_utils`, TTLCache-based.
-    Rate limit related data is tracked per-client IP and shared between all blueprints and this main API server.
+    Rate limit related data is tracked per-client IP and shared between
+    all blueprints and this main API server.
 
     Invoked in a controlled order by `pre_request_checks` function.
     """
@@ -485,7 +487,8 @@ def pre_request_checks() -> Optional[Tuple[Any, int]]:
 
 
 def _sanitize_callback(callback: object, max_len: int = 200, fp_len: int = 12):
-    """Normalize and redact untrusted callback text for safe logging.
+    """
+    Normalize and redact untrusted callback text for safe logging.
 
     Returns a tuple (short_snippet, fingerprint) where short_snippet is a
     truncated, control-character-free, token-redacted string safe for logs,
@@ -496,11 +499,11 @@ def _sanitize_callback(callback: object, max_len: int = 200, fp_len: int = 12):
     raw = "" if callback is None else str(callback)
 
     # Normalize unicode to a stable form
-    raw = unicodedata.normalize("NFKC", raw)
+    raw = unicodedata_normalize("NFKC", raw)
 
     # Collapse newlines/tabs into space and remove control characters
     raw = re_sub(r"[\r\n\t]+", " ", raw)
-    raw = "".join(ch if unicodedata.category(ch)[0] != "C" else "?" for ch in raw)
+    raw = "".join(ch if unicodedata_category(ch)[0] != "C" else "?" for ch in raw)
 
     # Redact obvious JWTs (three base64url parts) and long base64-like tokens
     raw = re_sub(
@@ -517,13 +520,13 @@ def _sanitize_callback(callback: object, max_len: int = 200, fp_len: int = 12):
             JWT_SECRET_KEY if "JWT_SECRET_KEY" in globals() and JWT_SECRET_KEY else None
         )
         if key:
-            fp = hmac.new(
-                str(key).encode("utf-8"), str(callback).encode("utf-8"), hashlib.sha256
+            fp = hmac_new(
+                str(key).encode("utf-8"), str(callback).encode("utf-8"), hashlib_sha256
             ).hexdigest()[:fp_len]
         else:
-            fp = hashlib.sha256(str(callback).encode("utf-8")).hexdigest()[:fp_len]
+            fp = hashlib_sha256(str(callback).encode("utf-8")).hexdigest()[:fp_len]
     except Exception:
-        fp = hashlib.sha256(short.encode("utf-8")).hexdigest()[:fp_len]
+        fp = hashlib_sha256(short.encode("utf-8")).hexdigest()[:fp_len]
 
     return short, fp
 
@@ -531,6 +534,11 @@ def _sanitize_callback(callback: object, max_len: int = 200, fp_len: int = 12):
 # Handle unauthorized access (missing token)
 @jwt.unauthorized_loader
 def custom_unauthorized_response(callback):
+    """
+    Handle requests with missing JWT tokens by logging the
+    attempt and returning a standardized JSON error response.
+    """
+
     # sanitize and fingerprint the callback before logging
     cb_short, cb_fp = _sanitize_callback(
         callback
@@ -557,6 +565,11 @@ def custom_unauthorized_response(callback):
 # Handle invalid tokens
 @jwt.invalid_token_loader
 def custom_invalid_token_response(callback):
+    """
+    Handle requests with invalid JWT tokens by logging the
+    attempt and returning a standardized JSON error response.
+    """
+
     # sanitize and fingerprint the callback before logging
     cb_short, cb_fp = _sanitize_callback(
         callback
@@ -603,6 +616,11 @@ def _summarize(d: dict, keys: tuple):
 # Handle expired tokens
 @jwt.expired_token_loader
 def custom_expired_token_response(jwt_header, jwt_payload):
+    """
+    Handle requests with expired JWT tokens by logging the attempt with summarized
+    header and payload information, and returning a standardized JSON error response.
+    """
+
     # summarize header and payload for logging
     header_summary = _summarize(jwt_header, ("alg", "typ", "kid", "jti"))
     payload_summary = _summarize(
@@ -628,6 +646,10 @@ def custom_expired_token_response(jwt_header, jwt_payload):
 # Handle revoked tokens (if applicable)
 @jwt.revoked_token_loader
 def custom_revoked_token_response(jwt_header, jwt_payload):
+    """
+    Handle requests with revoked JWT tokens by logging the attempt with summarized
+    header and payload information, and returning a standardized JSON error response.
+    """
     # summarize header and payload for logging
     header_summary = _summarize(jwt_header, ("alg", "typ", "kid", "jti"))
     payload_summary = _summarize(
@@ -659,7 +681,8 @@ def clear_sent_logs():
     tags:
         - API Server (api_server)
     summary: Clear sent logs before a timestamp
-    description: Deletes all logs marked as sent (sent=1) with timestamp before the given timestamp (expected in UTC, no timezone indicators, e.g. "2025-07-21 10:30:45").
+    description: Deletes all logs marked as sent (sent=1) with timestamp before the given timestamp
+    (expected in UTC, no timezone indicators, e.g. "2025-07-21 10:30:45").
     operationId: clear_sent_logs
     requestBody:
         required: true
@@ -707,42 +730,45 @@ def clear_sent_logs():
             return (
                 jsonify(
                     {
-                        "error": "Invalid timestamp format. Use ISO8601 format in UTC (e.g. '2025-07-21 10:30:45') without timezone info."
+                        "error": "Invalid timestamp format. Use ISO8601 format in UTC "
+                        "(e.g. '2025-07-21 10:30:45') without timezone info."
                     }
                 ),
                 STATUS_CODES["bad_request"],
             )
 
         # Delete logs marked as sent (sent=1) with timestamp before the given UTC timestamp
-        deleted: int = log_interface.clear_sent_logs_before(before_timestamp)
+        num_deleted: int = log_interface.clear_sent_logs_before(before_timestamp)
 
         # Log action with structured data and message ID for observability
         log(
-            message=f"Cleared {deleted} sent logs before {before_timestamp} (UTC)",
+            message=f"Cleared {num_deleted} sent logs before {before_timestamp} (UTC)",
             level="INFO",
             sd_tags={"timestamp": timestamp_str},
             message_id="CLRLOGS",
         )
 
         # Return the number of deleted logs in the response
-        return jsonify({"Successfully deleted logs": deleted}), STATUS_CODES["ok"]
+        return jsonify({"Successfully deleted logs": num_deleted}), STATUS_CODES["ok"]
     except Exception as ex:
         # Log the error with structured data and message ID for observability
         log(
             message=f"Internal server occurred while deleting logs (ex: {ex})",
             level="ERROR",
-            timestamp_str=(
+            sd_tags=(
                 {"timestamp_str": timestamp_str}
                 if "timestamp_str" in locals()
                 else None
             ),
             message_id="CLRLOGSERR",
         )
-        # Return a generic error message without exposing internal details, with appropriate status code
+        # return a generic error message without exposing internal details,
+        # with appropriate status code
         return (
             jsonify(
                 {
-                    "Internal server error while deleting logs": "No more information given for security purposes, check logs for further detail"
+                    "Internal server error while deleting logs": "No more information given for "
+                    "security purposes, check logs for further detail"
                 }
             ),
             STATUS_CODES["internal_server_error"],
@@ -798,7 +824,7 @@ if __name__ == "__main__":
         )
         # Also print to console for immediate feedback
         print(f"ERROR: api_blueprints directory not found or inaccessible: {ex}")
-        sys.exit(1)  # exit with error
+        sys_exit(1)  # exit with error
 
     # Require at least one .py file to proceed (avoid starting with an empty blueprints dir)
     python_files = [f for f in entries if f.endswith(".py")]
@@ -817,7 +843,7 @@ if __name__ == "__main__":
         print(
             f"ERROR: No Python files found in {blueprints_dir}; add at least one blueprint file."
         )  # Print to console for immediate feedback
-        sys.exit(1)  # exit with error
+        sys_exit(1)  # exit with error
 
     for filename in os_listdir(blueprints_dir):
         # Only consider Python files following the *_bp.py naming convention
@@ -825,8 +851,11 @@ if __name__ == "__main__":
         if not filename.endswith("_bp.py"):
             continue
 
-        module_name: str = filename[:-3]  # strip .py extension
+        module_name: str = filename[:-3]  # remove .py extension
+
+        # Construct the full module name for import (e.g. api_blueprints.users_bp)
         full_module_name = f"api_blueprints.{module_name}"  # construct full import path
+        # full_module_name is a constant
 
         # Try importing the module; log and continue on failure
         try:
@@ -848,6 +877,7 @@ if __name__ == "__main__":
         # Discover all flask.Blueprint instances in api_blueprints.<module>
         found_blueprints = []
         for attr_name in dir(module):
+
             # skip private attributes quickly
             if attr_name.startswith("_"):
                 continue
@@ -907,7 +937,8 @@ if __name__ == "__main__":
         try:
             db.create_all()
         except OperationalError as e:
-            # Log a clear, structured message and exit cleanly so startup doesn't crash with an opaque traceback
+            # Log a clear, structured message and exit cleanly
+            # so startup doesn't crash with an opaque traceback
             log(
                 message=f"Database connection failed during create_all: {e}",
                 level="ERROR",
@@ -915,16 +946,19 @@ if __name__ == "__main__":
                 sd_tags={"host": API_SERVER_HOST, "port": API_SERVER_PORT},
             )
             print(
-                f"ERROR: cannot connect to the database. Check Postgres is running and SQLALCHEMY_DATABASE_URI in config.\nCurrent SQLALCHEMY_DATABASE_URI={SQLALCHEMY_DATABASE_URI}"
+                "ERROR: cannot connect to the database. Check Postgres is running "
+                "and SQLALCHEMY_DATABASE_URI in config.\n"
+                f"Current SQLALCHEMY_DATABASE_URI={SQLALCHEMY_DATABASE_URI}"
             )  # Print to console for immediate feedback
-            sys.exit(1)  # exit with error
+            sys_exit(1)  # exit with error
 
     # Start the server
     if API_SERVER_DEBUG_MODE is True:
 
         # Log server start event
         log(
-            message=f"API server started with Flask built-in server with debug mode set to {API_SERVER_DEBUG_MODE}",
+            message="API server started with Flask built-in server "
+            f"with debug mode set to {API_SERVER_DEBUG_MODE}",
             level="INFO",
             message_id="SRVSTART",
             sd_tags={"host": API_SERVER_HOST, "port": API_SERVER_PORT},

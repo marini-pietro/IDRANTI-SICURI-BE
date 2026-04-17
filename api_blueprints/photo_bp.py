@@ -5,26 +5,27 @@ This module provides endpoints to create, read, update, and delete photos associ
 
 # Library imports
 from os.path import basename as os_path_basename
+from typing import List
+from re import search as re_search
+from re import IGNORECASE as re_IGNORECASE
 from flask import Blueprint, request, Response
 from flask_restful import Api, Resource
 from flask_jwt_extended import jwt_required
 from marshmallow import fields, ValidationError
 from sqlalchemy import exists
-from typing import List
-import re
 
 # Local imports
 from models import db, Photo, Hydrant
 from api_server import ma
+from api_config import (
+    STATUS_CODES,
+)
 from .blueprints_utils import (
     check_authorization,
     log,
     create_response,
     handle_options_request,
     get_hateos_location_string,
-)
-from api_config import (
-    STATUS_CODES,
 )
 
 # Define constants
@@ -37,13 +38,26 @@ api = Api(photo_bp)
 
 # Marshmallow Schemas
 def safe_string(value):
+    """
+    Custom validation function to ensure that a string does not
+    contain potentially dangerous characters.
+    Checks for the presence of "<", ">", "javascript:" and control characters.
+    If the string contains any of these, a ValidationError is raised.
+    This helps to prevent injection attacks and XSS vulnerabilities.
+    If the string is valid, it is returned unchanged.
+
+    @param value: The string value to validate.
+    @return: The original string if it is valid.
+    @raises ValidationError: If the string contains invalid characters.
+    """
+
     if not isinstance(value, str):
         raise ValidationError("Must be a string.")
     # Reject <, >, javascript:, and control chars
     if (
         "<" in value
         or ">" in value
-        or re.search(r"javascript:|[\x00-\x1F\x7F]", value, re.IGNORECASE)
+        or re_search(r"javascript:|[\x00-\x1F\x7F]", value, re_IGNORECASE)
     ):
         raise ValidationError("Invalid characters in string.")
     return value

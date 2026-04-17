@@ -6,24 +6,24 @@ It includes endpoints for creating, reading, updating, and deleting hydrant reco
 
 # Library imports
 from os.path import basename as os_path_basename
+from typing import Dict, Union, Any
 from flask import Blueprint, request, Response
 from flask_restful import Api, Resource
 from flask_jwt_extended import jwt_required
 from marshmallow import fields, ValidationError
-from typing import Dict, Union, Any
-from .blueprints_utils import (
-    check_authorization,
-    log,
-    create_response,
-    handle_options_request,
-    get_hateos_location_string,
-)
 
 # Local imports
 from api_server import ma
 from models import db, Hydrant, User
 from api_config import (
     STATUS_CODES,
+)
+from .blueprints_utils import (
+    check_authorization,
+    log,
+    create_response,
+    handle_options_request,
+    get_hateos_location_string,
 )
 
 # Define constants
@@ -51,7 +51,7 @@ class HydrantSchema(ma.Schema):
     via = fields.String(required=True)
     area_geo = fields.String(required=True)
     tipo = fields.String(required=True)
-    accessibilità = fields.String(required=True)
+    accessibilita = fields.String(required=True)
 
 
 # Initialize the schema
@@ -117,7 +117,7 @@ class HydrantResource(Resource):
                     tipo:
                       type: string
                       example: "idrante"
-                    accessibilità:
+                    accessibilita:
                       type: string
                       example: "pubblica"
           400:
@@ -208,7 +208,7 @@ class HydrantResource(Resource):
                   tipo:
                     type: string
                     example: "idrante"
-                  accessibilità:
+                  accessibilita:
                     type: string
                     example: "pubblica"
         responses:
@@ -442,7 +442,7 @@ class HydrantPostResource(Resource):
                   tipo:
                     type: string
                     example: "idrante"
-                  accessibilità:
+                  accessibilita:
                     type: string
                     example: "pubblica"
         responses:
@@ -497,7 +497,8 @@ class HydrantPostResource(Resource):
         if hydrant_exists is True:
             return create_response(
                 message={
-                    "error": "hydrant with provided stato, latitudine and longitudine already exists"
+                    "error": "hydrant with provided stato, latitudine "
+                    "and longitudine already exists"
                 },
                 status_code=STATUS_CODES["bad_request"],
             )
@@ -511,7 +512,7 @@ class HydrantPostResource(Resource):
             via=data["via"],
             area_geo=data["area_geo"],
             tipo=data["tipo"],
-            accessibilità=data["accessibilità"],
+            accessibilita=data["accessibilita"],
             email_ins=identity,
         )
 

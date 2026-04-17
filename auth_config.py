@@ -1,30 +1,32 @@
 """
-Configuration values are loaded from environment variables if set, otherwise default to hardcoded values (only suitable for development environments).
-Some settings, because of their type complexity or reliance on other settings, cannot be set via environment variables and thus remain hardcoded in this file (none are sensitive).
-Such settings should be modified directly in this file if needed, though in the vast majority of cases, this is unnecessary and not recommended.
-To avoid boilerplate code, ensure consistency across the project, simplify maintenance/edits, all the other files in the project should import configuration values directly from this module.
-Supports .env files via python-dotenv for easy overrides.
+This module handles the .env file (checking if it exists and loading it) and defines all
+the configuration variables for the authentication service in such a way that they are
+easily readable from other parts of the code, which will see this file as a python module.
+This module also provides default values and explanations for each configuration variable.
 """
 
+# Library imports
 from traceback import print_exc as traceback_print_exc
+from sys import exit as sys_exit
+from typing import Dict
+from datetime import timedelta
+from os import environ as os_environ
 from re import IGNORECASE as RE_IGNORECASE, compile as re_compile
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
-from typing import Dict
 from dotenv import load_dotenv
-from datetime import timedelta
-from os import environ as os_environ
 
 try:
     if not load_dotenv():  # Loads .env file if present
         raise FileNotFoundError("No .env file found.")
     print("Loaded environment variables from .env file in api_config.py")
-except Exception as ex:
+except FileNotFoundError as ex:
     traceback_print_exc()  # Print full traceback for debugging
     input(
-        "Close the program by closing this window.\nInput detection is not possible due to Flask blocking the terminal."
+        "Close the program by closing this window.\n"
+        "Input detection is not possible due to Flask blocking the terminal."
     )
-    exit(1)
+    sys_exit(1)
 
 # Authentication server related settings
 AUTH_SERVER_HOST: str = os_environ.get(
@@ -35,13 +37,15 @@ AUTH_SERVER_PORT: int = int(
 )  # port to run the auth server on
 AUTH_SERVER_IDENTIFIER: str = os_environ.get(
     "AUTH_SERVER_IDENTIFIER", "auth-server-1"
-)  # identifier of the auth server (used to distinguish multiple auth servers if needed) (also the name that shows up in logs)
+)  # identifier of the auth server (used to distinguish multiple auth servers if needed)
+# (also the name that shows up in logs)
 AUTH_API_VERSION: str = os_environ.get(
     "AUTH_API_VERSION", "v1"
 )  # version of the auth API
 AUTH_SERVER_DEBUG_MODE: bool = (
     os_environ.get("AUTH_SERVER_DEBUG_MODE", "True") == "True"
-)  # enable/disable debug mode for flask built-in server (required to be False to simulate production environment) (see production_scripts/README.txt)
+)  # enable/disable debug mode for flask built-in server
+# (required to be False to simulate production environment) (see production_scripts/README.txt)
 AUTH_SERVER_RATE_LIMIT: bool = (
     os_environ.get("AUTH_SERVER_RATE_LIMIT", "True") == "True"
 )  # enable/disable rate limiting on the auth server
@@ -58,8 +62,10 @@ AUTH_SERVER_SSL: bool = not (
 # PBKDF2 HMAC settings for password hashing (have to match those in api_config.py)
 PBKDF2HMAC_SETTINGS: Dict[str, int] = {
     "algorithm": hashes.SHA256(),
-    "length": 32,  # length of the derived key in bytes (32 bytes = 256 bits, which is a common choice for secure password hashing)
-    "iterations": 310_000,  # Minimum amount recommended by OWASP as of 2025 (should be increased is latency budget allows it)
+    "length": 32,  # length of the derived key in bytes
+    # (32 bytes = 256 bits, which is a common choice for secure password hashing)
+    "iterations": 310_000,  # Minimum amount recommended by OWASP as of 2025
+    # (should be increased if latency budget allows it)
     "backend": default_backend(),
 }
 
@@ -93,7 +99,8 @@ JWT_ACCESS_TOKEN_EXPIRES = timedelta(
 )  # access token expiration time
 
 # Settings for logging interface
-# N.B: LOG_SERVER_HOST and LOG_SERVER_PORT must be valid and reachable by the auth server for logging to work properly
+# N.B: LOG_SERVER_HOST and LOG_SERVER_PORT must be valid and reachable
+# by the auth server for logging to work properly
 # N.B: LOG_DB_PATH must be a valid path where the auth server has write permissions
 LOG_SERVER_HOST: str = os_environ.get(
     "LOG_SERVER_HOST", "localhost"
@@ -104,7 +111,8 @@ LOG_SERVER_PORT: int = int(
 LOG_INTERFACE_DB_FILENAME: str = os_environ.get(
     "AUTH_SERVER_LOG_INTERFACE_DB_FILENAME", ""
 )  # filename for the SQLite database file for logging
-# (no default parameter is given, because if it is missing the interface will create a more accurately named DB file based on runtime data such as timestamps)
+# (no default parameter is given, because if it is missing the interface will create
+# a more accurately named DB file based on runtime (e.g. timestamps))
 LOG_INTERFACE_MAX_RETRIES: int = int(
     os_environ.get("LOG_INTERFACE_MAX_RETRIES", 5)
 )  # maximum number of retries for logging interface
@@ -112,20 +120,24 @@ LOG_INTERFACE_BATCH_DELAY: int = int(
     os_environ.get("LOG_INTERFACE_BATCH_DELAY", 30)
 )  # delay (in seconds) between retries for logging interface
 
-# | Database configuration
+# Database configuration
 DB_HOST = os_environ.get("DB_HOST", "localhost")  # database host
 DB_NAME = os_environ.get("DB_NAME", "idranti-sicuri")  # database name
 DB_USER = os_environ.get("DB_USER", "postgres")  # database user
 DB_PASSWORD = os_environ.get("DB_PASSWORD", "postgres")  # database password
 DB_PORT = os_environ.get("DB_PORT", "5432")  # database port
 
-SQLALCHEMY_DATABASE_URI = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"  # database URI for SQLAlchemy
+# database URI for SQLAlchemy (format: postgresql://user:password@host:port/dbname)
+SQLALCHEMY_DATABASE_URI = (
+    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 SQLALCHEMY_TRACK_MODIFICATIONS = (
     os_environ.get("SQLALCHEMY_TRACK_MODIFICATIONS", "False") == "True"
-)  # disable/enable for flask-sql alchemy to track modifications (will have major performance impact, recommended to keep it disabled)
+)  # disable/enable for flask-sql alchemy to track modifications
+# (will have major performance impact, recommended to keep it disabled)
 
 # Miscellaneous settings
-# | Rate limiting settings
+# Rate limiting settings
 RATE_LIMIT_MAX_REQUESTS: int = int(
     os_environ.get("RATE_LIMIT_MAX_REQUESTS", 50)
 )  # max requests per time window
@@ -136,7 +148,7 @@ RATE_LIMIT_CACHE_TTL: int = int(
     os_environ.get("RATE_LIMIT_CACHE_TTL", 10)
 )  # time window (in seconds) for rate limiting
 
-# | HTTP status codes
+# HTTP status codes
 STATUS_CODES: Dict[str, int] = {
     "not_found": 404,
     "unauthorized": 401,
@@ -154,7 +166,7 @@ STATUS_CODES: Dict[str, int] = {
     "service_unavailable": 503,
 }
 
-# | Regex pattern for SQL injection detection
+# Regex pattern for SQL injection detection
 # This regex pattern is used to detect SQL injection attempts in user input.
 # It matches common SQL keywords and commands that are often used in SQL injection attacks.
 # Precompile the regex pattern once

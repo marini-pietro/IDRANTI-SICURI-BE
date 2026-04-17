@@ -27,7 +27,7 @@ INSERT INTO operatori (CF, nome, cognome) VALUES
 
 -- Idranti
 INSERT INTO idranti (
-  stato, latitudine, longitudine, comune, via, area_geo, tipo, accessibilità, email_ins
+  stato, latitudine, longitudine, comune, via, area_geo, tipo, accessibilita, email_ins
 ) VALUES
 ('utilizzabile', 41.9028, 12.4964, 'Roma', 'Via Nazionale', 'Centro', 'a', 'fruibile da autobotte', 'admin@comune.it'),
 ('non utilizzabile', 41.8902, 12.4922, 'Roma', 'Via dei Fori Imperiali', 'Centro Storico', 'b', 'strada stretta', 'user1@comune.it'),

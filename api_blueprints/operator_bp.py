@@ -5,25 +5,27 @@ Provides CRUD operations for operator resources identified by their CF.
 
 # Library imports
 from os.path import basename as os_path_basename
+from re import match as re_match
+from re import search as re_search
+from re import IGNORECASE as re_IGNORECASE
+from typing import Dict, Union, Any
 from flask import Blueprint, request, Response
 from flask_restful import Api, Resource
 from flask_jwt_extended import jwt_required
-from typing import Dict, Union, Any
 from marshmallow import fields, ValidationError
-import re
 
 # Local imports
 from models import db, Operator
 from api_server import ma
+from api_config import (
+    STATUS_CODES,
+)
 from .blueprints_utils import (
     check_authorization,
     log,
     create_response,
     get_hateos_location_string,
     handle_options_request,
-)
-from api_config import (
-    STATUS_CODES,
 )
 
 # Define constants
@@ -36,18 +38,38 @@ api = Api(operator_bp)
 
 # Define schemas and validation function
 def safe_string(value):
+    """
+    Custom validation function to ensure that a string does not
+    contain potentially dangerous characters.
+    Checks for the presence of "<", ">", "javascript:" and control characters.
+    If the string contains any of these, a ValidationError is raised.
+    This helps to prevent injection attacks and XSS vulnerabilities.
+    If the string is valid, it is returned unchanged.
+    """
+
     if not isinstance(value, str):
         raise ValidationError("Must be a string.")
     if (
         "<" in value
         or ">" in value
-        or re.search(r"javascript:|[\x00-\x1F\x7F]", value, re.IGNORECASE)
+        or re_search(r"javascript:|[\x00-\x1F\x7F]", value, re_IGNORECASE)
     ):
         raise ValidationError("Invalid characters in string.")
     return value
 
 
 class OperatorSchema(ma.Schema):
+    """
+    Marshmallow schema for validating and serializing Operator data.
+    Defines the expected fields for an Operator resource, including:
+    - CF: A required string field representing the operator's
+      unique identifier (16-character alphanumeric string).
+    - nome: A required string field representing the operator's first name,
+      validated to ensure it does not contain potentially dangerous characters.
+    - cognome: A required string field representing the operator's last name,
+      also validated for safety.
+    """
+
     CF = fields.String(required=True)
     nome = fields.String(required=True, validate=safe_string)
     cognome = fields.String(required=True, validate=safe_string)
@@ -72,7 +94,8 @@ class OperatorResource(Resource):
         tags:
           - API Server (api_server)
         summary: Get operator by CF
-        description: Retrieve operator information from the database by CF (16-character alphanumeric string).
+        description: Retrieve operator information from the database by CF
+        (16-character alphanumeric string).
         operationId: getOperatorByCF
         security:
           - bearerAuth: []
@@ -108,7 +131,7 @@ class OperatorResource(Resource):
         """
 
         # Validate the CF
-        if not isinstance(CF, str) or not re.match(r"^[A-Z0-9]{16}$", CF):
+        if not isinstance(CF, str) or not re_match(r"^[A-Z0-9]{16}$", CF):
             return create_response(
                 message={"error": "CF must be a 16-character alphanumeric string."},
                 status_code=STATUS_CODES["bad_request"],
@@ -209,7 +232,7 @@ class OperatorResource(Resource):
             )
 
         # Validate the CF
-        if not isinstance(CF, str) or not re.match(r"^[A-Z0-9]{16}$", CF):
+        if not isinstance(CF, str) or not re_match(r"^[A-Z0-9]{16}$", CF):
             return create_response(
                 message={"error": "CF must be a 16-character alphanumeric string."},
                 status_code=STATUS_CODES["bad_request"],
@@ -295,7 +318,7 @@ class OperatorResource(Resource):
         """
 
         # Validate the CF
-        if not isinstance(CF, str) or not re.match(r"^[A-Z0-9]{16}$", CF):
+        if not isinstance(CF, str) or not re_match(r"^[A-Z0-9]{16}$", CF):
             return create_response(
                 message={"error": "CF must be a 16-character alphanumeric string."},
                 status_code=STATUS_CODES["bad_request"],
@@ -354,6 +377,10 @@ class OperatorResource(Resource):
 
 
 class OperatorPostResource(Resource):
+    """
+    Resource for creating new operators.
+    This class provides a method to create a new operator record in the database.
+    """
 
     ENDPOINT_PATHS = [f"/{BP_NAME}"]
 

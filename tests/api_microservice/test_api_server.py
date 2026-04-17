@@ -2,7 +2,6 @@ import pytest
 from api_server import is_input_safe, API_VERSION, STATUS_CODES
 import api_server
 
-
 # This file contains unit tests for the functions and features defined in api_server.py
 
 

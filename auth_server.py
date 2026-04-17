@@ -4,14 +4,14 @@ This server provides endpoints for user authentication, token validation, and he
 """
 
 # Library imports
-import base64
+from base64 import urlsafe_b64decode
 from binascii import Error as BinasciiError
 from typing import Dict, Union, List, Any
-from flask import Flask, request, jsonify
 from os import system as os_system_cmd
+from datetime import datetime as datetime_obj
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.exceptions import InvalidKey
-from datetime import datetime as datetime_obj
+from flask import Flask, request, jsonify
 from flask_jwt_extended import (
     JWTManager,
     create_access_token,
@@ -45,13 +45,13 @@ from auth_config import (
     JWT_ACCESS_TOKEN_EXPIRES,
     STATUS_CODES,
     JWT_REFRESH_TOKEN_EXPIRES,
-    JWT_ALGORITHM,
     SQL_PATTERN,
     SQLALCHEMY_DATABASE_URI,
     SQLALCHEMY_TRACK_MODIFICATIONS,
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
-    # To lessen verbosity, the prefix "AUTH_SERVER_" is not used for the following logging interface settings,
+    # To lessen verbosity, the prefix "AUTH_SERVER_"
+    # is not used for the following logging interface settings,
     # but, being taken from the auth_config module, they are already properly namespaced.
     LOG_INTERFACE_DB_FILENAME,
     LOG_INTERFACE_MAX_RETRIES,
@@ -98,7 +98,7 @@ print("Logging interface background thread started successfully.")
 
 log = (
     log_interface.log
-)  # Get the log method from the interface for easy use in the auth server code
+)  # Effectively rename the log method from the interface for better readability in the code
 
 # Check JWT secret key length
 # encode to utf-8 to get byte length and check if it's at least 32 bytes (256 bits)
@@ -124,8 +124,8 @@ def verify_password(stored_password: str, provided_password: str) -> bool:
 
     try:
         # Decode the base64-encoded salt and hash
-        salt = base64.urlsafe_b64decode(salt_b64)
-        hash_bytes = base64.urlsafe_b64decode(hash_b64)
+        salt = urlsafe_b64decode(salt_b64)
+        hash_bytes = urlsafe_b64decode(hash_b64)
     except (BinasciiError, ValueError):
         # base64 decoding failed (malformed salt or hash)
         log(
@@ -438,7 +438,8 @@ def clear_sent_logs():
     tags:
         - AUTH Server (auth_server)
     summary: Clear sent logs before a timestamp
-    description: Deletes all logs marked as sent (sent=1) with timestamp before the given timestamp (expected in UTC, no timezone indicators, e.g. "2025-07-21 10:30:45").
+    description: Deletes all logs marked as sent (sent=1) with timestamp before
+    the given timestamp (expected in UTC, no timezone indicators, e.g. "2025-07-21 10:30:45").
     operationId: clear_sent_logs
     requestBody:
         required: true
@@ -486,7 +487,8 @@ def clear_sent_logs():
             return (
                 jsonify(
                     {
-                        "error": "Invalid timestamp format. Use ISO8601 format in UTC (e.g. '2025-07-21 10:30:45') without timezone info."
+                        "error": "Invalid timestamp format. Use ISO8601 format in UTC "
+                        "(e.g. '2025-07-21 10:30:45') without timezone info."
                     }
                 ),
                 STATUS_CODES["bad_request"],
@@ -510,14 +512,14 @@ def clear_sent_logs():
         log(
             message=f"Internal server occurred while deleting logs (ex: {ex})",
             level="ERROR",
-            timestamp_str=(
+            sd_tags=(
                 {"timestamp_str": timestamp_str}
                 if "timestamp_str" in locals()
                 else None
             ),
             message_id="CLRLOGSERR",
         )
-        # Return a generic error message without exposing internal details, with appropriate status code
+        # Return a generic error message without exposing internal details
         return (
             jsonify(
                 {
@@ -562,7 +564,8 @@ if __name__ == "__main__":
         try:
             # Log server start event
             log(
-                message=f"Auth server starting with Flask built-in server with debug mode set to {AUTH_SERVER_DEBUG_MODE}",
+                message="Auth server starting with Flask built-in server "
+                f"with debug mode set to {AUTH_SERVER_DEBUG_MODE}",
                 level="INFO",
                 message_id="SRVSTART",
                 sd_tags={"host": AUTH_SERVER_HOST, "port": AUTH_SERVER_PORT},

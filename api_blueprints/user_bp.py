@@ -5,9 +5,10 @@ for user entities in the database.
 """
 
 # Library imports
-import os
-import base64
-import re
+from base64 import urlsafe_b64encode as base64_urlsafe_b64encode
+from re import search as re_search
+from re import IGNORECASE as re_IGNORECASE
+from os import urandom as os_urandom
 from os.path import basename as os_path_basename
 from typing import List, Dict, Any, Union
 from flask import Blueprint, request, Response
@@ -30,6 +31,8 @@ from api_config import (
 )
 from api_server import ma
 
+# Import User model for ORM
+from models import db, User
 from .blueprints_utils import (
     check_authorization,
     log,
@@ -37,7 +40,6 @@ from .blueprints_utils import (
     handle_options_request,
     get_hateos_location_string,
 )
-from models import db, User  # Import User model for ORM
 
 # Define constants
 BP_NAME = os_path_basename(__file__).replace("_bp.py", "")
@@ -49,18 +51,31 @@ api = Api(user_bp)
 
 # Define schemas and validation function
 def safe_string(value):
+    """
+    Custom validation function to ensure that a string does
+    not contain potentially dangerous characters.
+    Checks for the presence of "<", ">", "javascript:" and control characters.
+    If the string contains any of these, a ValidationError is raised.
+    This helps to prevent injection attacks and XSS vulnerabilities.
+    If the string is valid, it is returned unchanged.
+    """
+
     if not isinstance(value, str):
         raise ValidationError("Must be a string.")
     if (
         "<" in value
         or ">" in value
-        or re.search(r"javascript:|[\x00-\x1F\x7F]", value, re.IGNORECASE)
+        or re_search(r"javascript:|[\x00-\x1F\x7F]", value, re_IGNORECASE)
     ):
         raise ValidationError("Invalid characters in string.")
     return value
 
 
 class UserSchema(ma.Schema):
+    """
+    Schema for validating the contents and structure ofuser data.
+    """
+
     email = fields.Email(required=True)
     comune = fields.String(required=True)
     nome = fields.String(required=True, validate=safe_string)
@@ -74,9 +89,13 @@ user_schema = UserSchema()
 
 
 def hash_password(password: str) -> str:
+    """
+    Hashes the string passed as a parameter using PBKDF2HMAC
+    with the settings defined with the configuration variables.
+    """
 
     # Generate a random salt
-    salt = os.urandom(16)
+    salt = os_urandom(16)
 
     # Use PBKDF2 to hash the password
     kdf = PBKDF2HMAC(
@@ -87,10 +106,10 @@ def hash_password(password: str) -> str:
         backend=PBKDF2HMAC_SETTINGS["backend"],
     )
     # Derive the hashed password
-    hashed_password = base64.urlsafe_b64encode(kdf.derive(password.encode("utf-8")))
+    hashed_password = base64_urlsafe_b64encode(kdf.derive(password.encode("utf-8")))
 
     # Store the salt and hashed password together as "salt:hash"
-    return f"{base64.urlsafe_b64encode(salt).decode('utf-8')}:{hashed_password.decode('utf-8')}"
+    return f"{base64_urlsafe_b64encode(salt).decode('utf-8')}:{hashed_password.decode('utf-8')}"
 
 
 class UserResource(Resource):
@@ -269,6 +288,8 @@ class UserResource(Resource):
             user.cognome = data["cognome"]
         if "admin" in data:
             user.admin = data["admin"]
+
+        # Commit changes to the database
         db.session.commit()
 
         # Log the update
@@ -452,12 +473,12 @@ class UserPostResource(Resource):
                 status_code=STATUS_CODES["bad_request"],
             )
 
-        email = data["email"]
-        password = data["password"]
-        comune = data["comune"]
-        nome = data["nome"]
-        cognome = data["cognome"]
-        admin = data.get("admin", False)  # Default to False if not provided
+        email: str = data["email"]
+        password: str = data["password"]
+        comune: str = data["comune"]
+        nome: str = data["nome"]
+        cognome: str = data["cognome"]
+        admin: str = data.get("admin", False)  # Default to False if not provided
 
         # Check if the user already exists in the database using EXISTS keyword
         user_exists: bool = User.query.filter_by(email=email).count() > 0
@@ -468,7 +489,7 @@ class UserPostResource(Resource):
             )
 
         # Hash the password
-        hashed_password = hash_password(password)
+        hashed_password: str = hash_password(password)
 
         # Insert the new user into the database
         new_user = User(
@@ -617,16 +638,16 @@ class UserLogin(Resource):
         password: str = data["password"]
 
         try:
-          # Forward login request to the authentication service
-          scheme = "https" if IS_AUTH_SERVER_SSL else "http"
-          auth_login_url = (
-            f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/login"
-          )
-          response = requests_post(
-            auth_login_url,
-            json={"email": email, "password": password},
-            timeout=5,
-          )
+            # Forward login request to the authentication service
+            scheme = "https" if IS_AUTH_SERVER_SSL else "http"
+            auth_login_url: str = (
+                f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/login"
+            )
+            response = requests_post(
+                auth_login_url,
+                json={"email": email, "password": password},
+                timeout=5,
+            )
         except RequestException as ex:
 
             # Log the error
@@ -670,7 +691,7 @@ class UserLogin(Resource):
                 status_code=STATUS_CODES["unauthorized"],
             )
 
-        elif response.status_code == STATUS_CODES["bad_request"]:  # Bad request
+        if response.status_code == STATUS_CODES["bad_request"]:  # Bad request
             # Log the bad request
             log(
                 message=f"Bad request during login for email: {email}",
@@ -689,7 +710,7 @@ class UserLogin(Resource):
                 status_code=STATUS_CODES["bad_request"],
             )
 
-        elif (
+        if (
             response.status_code == STATUS_CODES["internal_error"]
         ):  # Internal server error
             # Log the internal error
@@ -713,7 +734,8 @@ class UserLogin(Resource):
         else:
             # Log any unexpected errors
             log(
-                message=f"Unexpected error during login for email: {email} with status code: {response.status_code}",
+                message=f"Unexpected error during login for email: {email} "
+                f"with status code: {response.status_code}",
                 level="ERROR",
                 message_id="LOGINERR",
                 sd_tags={
