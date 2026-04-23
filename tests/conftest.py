@@ -1,3 +1,7 @@
+"""
+Shared pytest fixtures for the backend test suite.
+"""
+
 from api_server import main_api
 import pytest
 

@@ -82,7 +82,7 @@ This directory contains all Docker-related configuration files for the IDRANTI S
 ### 1. Setup environment variables
 ```bash
 # Copy template to actual .env file
-cp docker/.env.example .env
+cp .env.example .env
 
 # Edit .env with your environment-specific values
 ```

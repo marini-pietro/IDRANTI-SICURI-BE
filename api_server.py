@@ -1,6 +1,6 @@
 """
-API server for the application.
-This server handles incoming requests and routes them to the appropriate blueprints.
+API server for the application.  
+This server handles incoming requests and routes them to the appropriate blueprints.  
 Also provides a health check endpoint.
 """
 
