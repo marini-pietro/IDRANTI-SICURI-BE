@@ -50,7 +50,7 @@ api = Api(user_bp)
 
 
 # Define schemas and validation function
-def safe_string(value):
+def safe_string(value: str):
     """
     Custom validation function to ensure that a string does
     not contain potentially dangerous characters.

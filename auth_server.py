@@ -300,7 +300,9 @@ def login():
             STATUS_CODES["bad_request"],
         )
 
-    user = User.query.filter_by(email=email).first()  # Fetch user from database
+    user: User | None = User.query.filter_by(
+        email=email
+    ).first()  # Fetch user from database
     if user and verify_password(
         user.password, password
     ):  # If the user exists and password is correct
@@ -368,7 +370,7 @@ def validate_token():
 
     # Get identity and custom claims from the JWT
     identity = get_jwt_identity()
-    user_role = get_jwt().get("role")
+    user_role: str | None = get_jwt().get("role")
 
     return jsonify({"identity": identity, "role": user_role}), STATUS_CODES["ok"]
 
@@ -401,8 +403,10 @@ def refresh():
     identity = get_jwt_identity()
 
     # Preserve custom claims from the refresh token (e.g. role) when issuing a new access token
-    user_role = get_jwt().get("role")
-    additional_claims = {"role": user_role} if user_role is not None else None
+    user_role: str | None = get_jwt().get("role")
+    additional_claims: dict[str, str] | None = (
+        {"role": user_role} if user_role is not None else None
+    )
 
     # create_access_token expects additional_claims to be a dict or omitted
     if additional_claims:
@@ -467,13 +471,14 @@ def clear_sent_logs():
         400:
             description: Invalid or missing timestamp
     """
+    timestamp_str: str | None = None
     try:
         # Parse JSON body and extract timestamp
         data = request.get_json(force=True)
-        timestamp_str: str = data.get("timestamp")
+        timestamp_str = data.get("timestamp")
 
         # Check if timestamp is provided
-        if not timestamp_str:
+        if timestamp_str is None:
             return (
                 jsonify({"error": "Missing 'timestamp' in request body"}),
                 STATUS_CODES["bad_request"],
@@ -513,9 +518,7 @@ def clear_sent_logs():
             message=f"Internal server occurred while deleting logs (ex: {ex})",
             level="ERROR",
             sd_tags=(
-                {"timestamp_str": timestamp_str}
-                if "timestamp_str" in locals()
-                else None
+                {"timestamp_str": timestamp_str} if timestamp_str is not None else None
             ),
             message_id="CLRLOGSERR",
         )

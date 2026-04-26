@@ -17,7 +17,7 @@ from os.path import dirname as os_path_dirname
 from os.path import join as os_path_join
 import socket as socket_lib
 from selectors import DefaultSelector as selectors_DefaultSelector
-from selector import EVENT_READ as selectors_EVENT_READ
+from selectors import EVENT_READ as selectors_EVENT_READ
 from datetime import datetime
 from collections import defaultdict, deque
 from cachetools import TTLCache
@@ -172,6 +172,7 @@ def start_syslog_server(host: str, port: int) -> None:
             _,
             server_addr,
         ) in addrinfos:  # _ represents ignored values not used in this context
+            socket = None
             try:
                 socket = socket_lib.socket(ip_address_family, socket_lib.SOCK_DGRAM)
                 # On IPv6, try to allow dual-stack where supported (this doesn't replace two-socket approach)
@@ -185,10 +186,11 @@ def start_syslog_server(host: str, port: int) -> None:
                 socket.bind(server_addr)  # Bind the socket to the address
                 return socket  # Return the successfully bound socket
             except OSError:
-                try:
-                    socket.close()  # Close the socket on failure
-                except Exception:
-                    pass
+                if socket is not None:
+                    try:
+                        socket.close()  # Close the socket on failure
+                    except Exception:
+                        pass
                 continue
         return None
 
@@ -216,7 +218,10 @@ def start_syslog_server(host: str, port: int) -> None:
         )
         return
 
-    for socket in sockets:
+    # Now that we have our socket(s), set them to non-blocking and register them with the selector
+
+    # Filter out any None sockets (in case one of the bind attempts failed) and set up the selector
+    for socket in [s for s in sockets if s is not None]:
         socket.setblocking(
             False
         )  # Make socket non-blocking (I/O calls won't block the thread execution)
@@ -230,7 +235,9 @@ def start_syslog_server(host: str, port: int) -> None:
             if not events:  # If there are no events, continue to the next iteration
                 continue
             for key, _ in events:
-                sock = key.fileobj  # Get the socket object from the selector key
+                sock: selectors_FileDescriptorLike = (
+                    key.fileobj
+                )  # Get the socket object from the selector key
                 try:
                     # Receive data from the socket
                     data, addr = sock.recvfrom(
@@ -324,7 +331,7 @@ if RETAIN_LOGS_RATE_LIMIT_TRIGGER is True:
     queue_lock = Lock()  # Lock to ensure thread-safe access to the queue
 
 
-def syslog_message_preprocessing(message: str, addr: tuple) -> None:
+def syslog_message_preprocessing(message: str, addr: tuple[str, int]) -> None:
     """
     Process and log a syslog message according to RFC 5424 with shared rate limiting.
 
@@ -340,7 +347,7 @@ def syslog_message_preprocessing(message: str, addr: tuple) -> None:
     None
     """
 
-    source_ip = addr[0]  # Extract source IP from address tuple
+    source_ip: str = addr[0]  # Extract source IP from address tuple
 
     # Enforce rate limit
     if LOG_SERVER_RATE_LIMIT is True:
@@ -408,7 +415,7 @@ def _process_message(message: str) -> None:
         # Create structured data from tags
         structured_data = "-"
         if tags:  # If there are tags, format them as structured data elements
-            sd_elements = []  # List to hold structured data elements
+            sd_elements: list[str] = []  # List to hold structured data elements
 
             # Iterate over tags and format them as key="value" pairs
             for key, value in tags.items():

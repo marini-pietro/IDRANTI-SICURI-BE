@@ -47,7 +47,7 @@ def test_get_hateos_location_string():
     """
     HATEOAS helper should include scheme and resource path.
     """
-    
+
     # Ensure the function returns a correctly formatted string
     loc = bu.get_hateos_location_string("/hydrants", 123)
     assert isinstance(loc, str)

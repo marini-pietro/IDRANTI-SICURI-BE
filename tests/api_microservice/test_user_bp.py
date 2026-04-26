@@ -97,7 +97,7 @@ def test_user_login_handles_upstream_timeout(monkeypatch):
     """
     UserLogin should return internal error if auth service is unavailable.
     """
-    
+
     monkeypatch.setattr(user_bp, "LOGIN_AVAILABLE_THROUGH_API", True)
 
     def fake_post(_url, json=None, timeout=None):

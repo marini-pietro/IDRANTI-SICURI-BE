@@ -16,17 +16,12 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from dotenv import load_dotenv
 
-try:
-    if not load_dotenv():  # Loads .env file if present
-        raise FileNotFoundError("No .env file found.")
-    print("Loaded environment variables from .env file in api_config.py")
-except FileNotFoundError as ex:
-    traceback_print_exc()  # Print full traceback for debugging
-    input(
-        "Close the program by closing this window.\n"
-        "Input detection is not possible due to Flask blocking the terminal."
+if load_dotenv():  # Loads .env file if present
+    print("Loaded environment variables from .env file in auth_config.py")
+else:
+    print(
+        "No .env file found in auth_config.py; using defaults and environment variables."
     )
-    sys_exit(1)
 
 # Authentication server related settings
 AUTH_SERVER_HOST: str = os_environ.get(
@@ -60,7 +55,7 @@ AUTH_SERVER_SSL: bool = not (
 )  # Whether the authentication server uses SSL/TLS or not
 
 # PBKDF2 HMAC settings for password hashing (have to match those in api_config.py)
-PBKDF2HMAC_SETTINGS: Dict[str, int] = {
+PBKDF2HMAC_SETTINGS: Dict[str, int | hashes.HashAlgorithm] = {
     "algorithm": hashes.SHA256(),
     "length": 32,  # length of the derived key in bytes
     # (32 bytes = 256 bits, which is a common choice for secure password hashing)

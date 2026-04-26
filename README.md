@@ -97,6 +97,19 @@ Example of log message generated directly by the log server itself:
 
 **Message IDs available at the end of the file.**
 
+## Tests
+
+The `tests/` folder contains pytest test suites for the API server, auth server, and blueprints.  
+To run the tests, use the following command from the project root:
+```bash
+python -m pytest tests/
+```
+
+Note: Before executing the tests it is necesary to first install the pytest library (it is not included in the requirements.txt file because it is only needed for testing and not for running the application) with the following command:
+```bash
+pip install pytest
+```
+
 ## Security measures
 
 This project implements several security measures.  

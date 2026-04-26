@@ -6,22 +6,15 @@ This module also provides default values and explanations for each configuration
 """
 
 # Library imports
-from sys import exit as sys_exit
-from traceback import print_exc as traceback_print_exc
 from os import environ as os_environ
 from dotenv import load_dotenv
 
-try:
-    if not load_dotenv():  # Loads .env file if present
-        raise FileNotFoundError("No .env file found.")
-    print("Loaded environment variables from .env file in api_config.py")
-except FileNotFoundError as ex:
-    traceback_print_exc()  # Print full traceback for debugging
-    input(
-        "Close the program by closing this window.\n"
-        "Input detection is not possible due to Flask blocking the terminal."
+if load_dotenv():  # Loads .env file if present
+    print("Loaded environment variables from .env file in log_config.py")
+else:
+    print(
+        "No .env file found in log_config.py; using defaults and environment variables."
     )
-    sys_exit(1)
 
 # Log server related settings
 LOG_SERVER_HOST: str = os_environ.get(

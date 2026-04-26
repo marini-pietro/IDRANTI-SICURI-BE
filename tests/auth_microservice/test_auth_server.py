@@ -104,7 +104,7 @@ def test_login_rejects_non_json_content_type():
     """
     Login endpoint should require application/json content type.
     """
-    
+
     client = auth_server.auth_api.test_client()
     response = client.post(
         f"/auth/{auth_server.AUTH_API_VERSION}/login",

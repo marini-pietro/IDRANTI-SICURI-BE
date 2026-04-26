@@ -67,7 +67,7 @@ log = (
 
 # Authentication related
 # Cache for token validation results
-token_validation_cache = TTLCache(
+token_validation_cache: TTLCache[str, tuple[str | None, str | None]] = TTLCache(
     maxsize=JWT_VALIDATION_CACHE_SIZE, ttl=JWT_VALIDATION_CACHE_TTL
 )
 
@@ -307,7 +307,7 @@ def is_rate_limited(client_ip: str) -> bool:
     """
     with rate_limit_lock:
         # Retrieve or initialize client data
-        client_data = rate_limit_cache.get(client_ip, {"count": 0})
+        client_data: dict[str, int] = rate_limit_cache.get(client_ip, {"count": 0})
 
         # Increment the request count
         client_data["count"] += 1

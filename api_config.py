@@ -12,22 +12,17 @@ from re import IGNORECASE as RE_IGNORECASE, compile as re_compile
 from datetime import timedelta
 from os import environ as os_environ
 from os.path import isfile as os_path_isfile
-from typing import Dict, Set, Tuple
+from typing import Any, Dict, Set, Tuple
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from dotenv import load_dotenv
 
-try:
-    if not load_dotenv():  # Loads .env file if present
-        raise FileNotFoundError("No .env file found.")
+if load_dotenv():  # Loads .env file if present
     print("Loaded environment variables from .env file in api_config.py")
-except FileNotFoundError as ex:
-    traceback_print_exc()  # Print full traceback for debugging
-    input(
-        "Close the program by closing this window.\n"
-        "Input detection is not possible due to Flask blocking the terminal."
+else:
+    print(
+        "No .env file found in api_config.py; using defaults and environment variables."
     )
-    sys_exit(1)
 
 # Authentication server related settings
 AUTH_SERVER_HOST: str = os_environ.get("AUTH_SERVER_HOST", "localhost")
@@ -38,7 +33,7 @@ JWT_VALIDATION_CACHE_SIZE: int = int(os_environ.get("JWT_VALIDATION_CACHE_SIZE",
 JWT_VALIDATION_CACHE_TTL: int = int(os_environ.get("JWT_VALIDATION_CACHE_TTL", 3600))
 
 # PBKDF2 HMAC settings for password hashing (have to match those in auth_config.py)
-PBKDF2HMAC_SETTINGS: Dict[str, int] = {
+PBKDF2HMAC_SETTINGS: Dict[str, int | hashes.HashAlgorithm] = {
     "algorithm": hashes.SHA256(),
     "length": 32,  # length of the derived key in bytes (32 bytes = 256 bits,
     # which is a common choice for secure password hashing)
@@ -275,14 +270,18 @@ SQL_PATTERN = re_compile(
 )
 
 # Flasgger (Swagger UI) configuration
-SWAGGER_CONFIG = {
+SWAGGER_CONFIG: Dict[str, Any] = {
     "headers": [],
     "specs": [
         {
             "endpoint": "apispec",
             "route": "/apispec.json",
-            "rule_filter": lambda rule: True,  # all in
-            "model_filter": lambda tag: True,  # all in
+            # "rule_filter" and "model_filter" are used to specify which
+            # endpoints and models to include in the Swagger documentation.
+            # Including all endpoints and models by returning True for all
+            # (type: ignore to suppress pylance strict type check warnings).
+            "rule_filter": lambda rule: True,  # type: ignore
+            "model_filter": lambda tag: True,  # type: ignore
         }
     ],
     "static_url_path": "/flasgger_static",

@@ -11,7 +11,7 @@ from re import IGNORECASE as re_IGNORECASE
 from flask import Blueprint, request, Response
 from flask_restful import Api, Resource
 from flask_jwt_extended import jwt_required
-from marshmallow import fields, ValidationError
+from marshmallow import fields, ValidationError, validate
 from sqlalchemy import exists
 
 # Local imports
@@ -37,7 +37,7 @@ api = Api(photo_bp)
 
 
 # Marshmallow Schemas
-def safe_string(value):
+def safe_string(value: str):
     """
     Custom validation function to ensure that a string does not
     contain potentially dangerous characters.
@@ -69,7 +69,7 @@ class PhotoSchema(ma.Schema):
     This schema defines the fields required for a photo associated with a hydrant.
     """
 
-    id_idrante = fields.Integer(required=True, validate=lambda x: x > 0)
+    id_idrante = fields.Integer(required=True, validate=validate.Range(min=1))
     posizione = fields.String(required=True, validate=safe_string)
     data = fields.Date(required=True)
 

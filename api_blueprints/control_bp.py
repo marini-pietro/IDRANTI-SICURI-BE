@@ -63,7 +63,7 @@ class ControlResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}/<int:id_>"]
 
     @jwt_required()
-    def get(self, id_, identity) -> Response:
+    def get(self, id_: int, identity: Dict[str, Any]) -> Response:
         """
         ---
         tags:
@@ -119,9 +119,7 @@ class ControlResource(Resource):
             )
 
         # Gather the data from the database
-        control: Union[Control, None] = Control.query.filter_by(
-            id_controllo=id_
-        ).first()
+        control: Control | None = Control.query.filter_by(id_controllo=id_).first()
 
         # Check if the result is empty
         if control is None:
@@ -149,7 +147,7 @@ class ControlResource(Resource):
         )
 
     @jwt_required()
-    def patch(self, id_, identity) -> Response:
+    def patch(self, id_: int, identity: Dict[str, Any]) -> Response:
         """
         ---
         tags:
@@ -208,7 +206,7 @@ class ControlResource(Resource):
         """
         try:
             # Load input
-            data = control_schema.load(
+            data: Dict[str, Any] = control_schema.load(
                 request.get_json(), partial=True
             )  # partial=true to allow partial updates
         except ValidationError as err:
@@ -218,7 +216,7 @@ class ControlResource(Resource):
             )
 
         # Gather data from database
-        control: Control = Control.query.filter_by(id_controllo=id_).first()
+        control: Control | None = Control.query.filter_by(id_controllo=id_).first()
 
         # Check that the control exists in the database
         if control is None:
@@ -228,10 +226,10 @@ class ControlResource(Resource):
             )
 
         # Gather the data
-        tipo = data.get("tipo")
-        esito = data.get("esito")
-        data_esecuzione = data.get("data")
-        id_idrante = data.get("id_idrante")
+        tipo: str | None = data.get("tipo")
+        esito: bool | None = data.get("esito")
+        data_esecuzione: str | None = data.get("data")
+        id_idrante: int | None = data.get("id_idrante")
 
         # Only check hydrant existence if id_idrante is being updated
         if id_idrante is not None:
@@ -280,7 +278,7 @@ class ControlResource(Resource):
         )
 
     @jwt_required()
-    def delete(self, id_, identity) -> Response:
+    def delete(self, id_: int, identity: Dict[str, Any]) -> Response:
         """
         ---
         tags:
@@ -323,7 +321,7 @@ class ControlResource(Resource):
             )
 
         # Gather the data from the database
-        control: Control = Control.query.filter_by(id_controllo=id_).first()
+        control: Control | None = Control.query.filter_by(id_controllo=id_).first()
 
         # Check if the control exists
         if control is None:
@@ -386,7 +384,7 @@ class ControlPostResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}"]
 
     @jwt_required()
-    def post(self, identity) -> Response:
+    def post(self, identity: Dict[str, Any]) -> Response:
         """
         ---
         tags:
@@ -437,17 +435,17 @@ class ControlPostResource(Resource):
         """
         try:
             # Validate and deserialize input
-            data = control_schema.load(request.get_json())
+            data: Dict[str, Any] = control_schema.load(request.get_json())
         except ValidationError as err:
             return create_response(
                 message={"error": err.messages},
                 status_code=STATUS_CODES["bad_request"],
             )
 
-        tipo = data["tipo"]
-        esito = data["esito"]
-        data_esecuzione = data["data"]
-        id_idrante = data["id_idrante"]
+        tipo: str = data["tipo"]
+        esito: bool = data["esito"]
+        data_esecuzione: str = data["data"]
+        id_idrante: int = data["id_idrante"]
 
         # Check that the id_idrante exists in the database
         hydrant_exists: bool = db.session.query(

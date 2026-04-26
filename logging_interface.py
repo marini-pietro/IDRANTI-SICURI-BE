@@ -75,8 +75,7 @@ class SQLiteUDPLogger:
         with self._get_connection() as conn:
 
             # Main logs table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -100,8 +99,7 @@ class SQLiteUDPLogger:
                     -- Indexes for performance
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            """
-            )
+            """)
 
             # Ensure "source" column exists on older databases
             cursor = conn.execute("PRAGMA table_info(logs)")
@@ -119,16 +117,14 @@ class SQLiteUDPLogger:
             )
 
             # Statistics table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS log_stats (
                     date TEXT PRIMARY KEY,
                     total INTEGER DEFAULT 0,
                     sent INTEGER DEFAULT 0,
                     failed INTEGER DEFAULT 0
                 )
-            """
-            )
+            """)
 
     @property
     def _connection(self):
@@ -162,7 +158,7 @@ class SQLiteUDPLogger:
         message_id: Optional[str] = None,
         priority: int = 0,
         source: Optional[str] = None,
-    ) -> int:
+    ) -> int | None:
         """
         Store a log message in SQLite.
         message: log message text
@@ -178,7 +174,7 @@ class SQLiteUDPLogger:
         # Get current UTC time
         current_time = self._get_current_utc_time()
 
-        log_entry = {
+        log_entry: dict[str, str | int | None] = {
             "timestamp": self._format_datetime_utc(current_time),
             "service": self.service_name,
             "level": level,
@@ -231,7 +227,9 @@ class SQLiteUDPLogger:
 
         return log_id
 
-    def _get_unsent_logs(self, batch_size: int = 10) -> List[tuple]:
+    def _get_unsent_logs(
+        self, batch_size: int = 10
+    ) -> list[tuple[int, str, str, str, Optional[str], int]]:
         """
         Retrieves logs that haven't been sent yet
 
@@ -270,10 +268,10 @@ class SQLiteUDPLogger:
         """Send a single log to syslog via UDP"""
         try:
             # Parse tags
-            tags = json_loads(tags_str) if tags_str else {}
+            tags: dict[str, Any] = json_loads(tags_str) if tags_str else {}
 
             # Create a simple data structure with the log information
-            log_data = {
+            log_data: dict[str, Any] = {
                 "timestamp": timestamp,
                 "level": level,
                 "message": message,
@@ -441,15 +439,13 @@ class SQLiteUDPLogger:
             row = cursor.fetchone()
 
             # Get recent failures
-            cursor = conn.execute(
-                """
+            cursor = conn.execute("""
                 SELECT message, error_message, attempts, timestamp
                 FROM logs
                 WHERE sent = 0 AND attempts > 0
                 ORDER BY last_attempt DESC
                 LIMIT 5
-            """
-            )
+            """)
             recent_failures = cursor.fetchall()
 
         return {
@@ -485,11 +481,11 @@ class SQLiteUDPLogger:
         level: Optional[str] = None,
         source: Optional[str] = None,
         limit: int = 100,
-    ) -> List[Dict]:
+    ) -> list[dict[str, Any]]:
         """Query logs with filters"""
 
         query = "SELECT * FROM logs WHERE 1=1"
-        params = []
+        params: list[str | int] = []
 
         if since:
             query += " AND timestamp >= ?"
@@ -515,10 +511,10 @@ class SQLiteUDPLogger:
             rows = cursor.fetchall()
 
             # Get column names
-            column_names = [desc[0] for desc in cursor.description]
+            column_names: list[str] = [desc[0] for desc in cursor.description]
 
             # Convert to dicts
-            results = []
+            results: list[dict[str, Any]] = []
             for row in rows:
                 log_dict = dict(zip(column_names, row))
                 if log_dict.get("tags"):
@@ -530,12 +526,12 @@ class SQLiteUDPLogger:
 
 # Factory function for easy integration
 def create_interface(
-    syslog_host,
-    syslog_port=None,
-    service_name=None,
-    max_retries=None,
-    retry_delay=None,
-    db_filename=None,
+    syslog_host: str,
+    syslog_port: int,
+    service_name: str,
+    max_retries: int,
+    retry_delay: int,
+    db_filename: str,
 ) -> SQLiteUDPLogger:
     """
     Creates instance of logger interface with given configuration.

@@ -11,10 +11,11 @@ from os import listdir as os_listdir
 # in the current directory in the directory (made a package by this __init__.py file)
 # so that they can be easily imported in the main script (api_server.py) and used as blueprints.
 
-__all__ = []
+__all__: list[str] = []
 current_dir = os_path_dirname(__file__)
 for file in os_listdir(current_dir):
     if file.endswith(".py") and file != "__init__.py" and file != "blueprints_utils.py":
         module_name = file[:-3]
         if module_name + "_bp" not in __all__:
+            # typically, the blueprint variable in each module is named as <module_name>_bp
             __all__.append(module_name)

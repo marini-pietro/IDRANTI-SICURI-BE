@@ -43,7 +43,7 @@ def test_hydrant_schema_rejects_invalid_latitudine_type():
     """
     Hydrant schema should reject non-float latitude values.
     """
-    
+
     payload = {
         "stato": "attivo",
         "latitudine": "not-a-number",

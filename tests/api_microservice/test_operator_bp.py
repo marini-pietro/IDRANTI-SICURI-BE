@@ -39,7 +39,7 @@ def test_operator_safe_string_rejects_dangerous_values(value):
     """
     safe_string should reject common XSS and control-character payloads.
     """
-    
+
     with pytest.raises(ValidationError):
         operator_bp.safe_string(value)
 

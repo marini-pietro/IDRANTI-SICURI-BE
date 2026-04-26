@@ -25,7 +25,7 @@ def test_photo_post_options():
     """
     Photo POST resource should expose POST in Allow header.
     """
-    
+
     cls = photo_bp.PhotoPostResource
     resp = bu.handle_options_request(cls)
     assert resp.status_code == 200
