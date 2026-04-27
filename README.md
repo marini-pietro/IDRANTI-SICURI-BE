@@ -1,8 +1,26 @@
 # IDRANTI SICURI BACKEND
 
-This repository provides a compact microservice-style Flask application for managing the backend of the IDRANTI SICURI application and its related resources.  
-This project is aimed at providing fire fighters, public workers and hydrants mantainers with a quick, reliable, secure, easy to use/access browser based platform to access and manage hydrant related data.  
-Most probably the platform will also be accessible through a mobile wrapper application.
+**Notice**: I'm the sole developer of this repository, handling every stage from architecture design to testing and deployment.  
+I started this as a volunteer effort while still in my last year of high school after being recruited by a professor.  
+While I can't guarantee the project will remain permanently open source, I'm committed to keeping it accessible and if circumstances change, I will create an alternative generic version to keep the project available as open-source code.  
+I would also like to disclose that a third party involved into starting this project (by originally contacting my professor) has once briefly suggested potential compensation, but I'm not motivated by it; my priority is maintaining this as an open-source resource. I wanted to be completely transparent about the project's background and my intentions.  
+
+Due to (the usual) slow bureaucracy and the third party rarely contacting us developers, so the project moves toward completion at a very slow pace and requirements tend to arrive in small, uneven updates during development, which is far from ideal.
+The codebase is fairly modular, so future updates should not significantly reshape the core logic or underlying processes, but it is still worth keeping this in mind if you want to fork the repository.
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3). You may use, modify, and redistribute the code, but any distributed or network-accessible derivative work must remain under the same license, with source code made available under the license terms.
+
+See the full text in the [LICENSE](LICENSE) file.
+
+## Purpose
+
+The purpose of this backend is to provide a robust, scalable, and maintainable microservices architecture for the management and distribution of hydrant-related data.  
+In practice, firefighters can use it in the field to quickly find the nearest hydrant through an interactive map (not handled in this repo), check its state, and understand how it can be reached, whether it is directly accessible by firetruck or tucked away in a small alley. Public workers can use the same system to verify records, keep data updated, and manage periodic inspections.  
+The result is hydrant information that stays easy to maintain and easy to access when time is tight.  
+
+The [frontend](https://github.com/campionl/idranti-sicuri_frontend) is being developed by two other students from the same high school I attended (as of April 2026).
 
 ## High level architecture
 

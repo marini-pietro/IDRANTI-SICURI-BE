@@ -28,6 +28,7 @@ env/
 .github/          # GitHub workflows/actions
 .gitlab-ci.yml    # GitLab CI config
 .dockerignore     # This file itself
+LICENSE
 
 # IDE & Editor Configuration
 # Exclude development tool configs
@@ -60,6 +61,7 @@ conftest.py
 docs/
 *.md
 README.md
+LICENSE.*
 
 # Development scripts
 developing_scripts/
