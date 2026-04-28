@@ -1,7 +1,7 @@
 # IDRANTI SICURI BACKEND
 
 **Notice**: I'm the sole developer of this repository, handling every stage from architecture design to testing and deployment.  
-I started this as a volunteer effort while still in my last year of high school after being recruited by a professor.  
+I started this as a volunteer effort while still in my last year of high school after being asked to partecipate by a professor.  
 While I can't guarantee the project will remain permanently open source, I'm committed to keeping it accessible and if circumstances change, I will create an alternative generic version to keep the project available as open-source code.  
 I would also like to disclose that a third party involved into starting this project (by originally contacting my professor) has once briefly suggested potential compensation, but I'm not motivated by it; my priority is maintaining this as an open-source resource. I wanted to be completely transparent about the project's background and my intentions.  
 
