@@ -8,3 +8,4 @@ flask-sqlalchemy
 psycopg2-binary
 marshmallow-sqlalchemy
 python-dotenv
+flask-limiter

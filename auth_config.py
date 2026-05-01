@@ -12,6 +12,7 @@ from typing import Dict
 from datetime import timedelta
 from os import environ as os_environ
 from re import IGNORECASE as RE_IGNORECASE, compile as re_compile
+from json import loads as json_loads
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from dotenv import load_dotenv
@@ -41,9 +42,6 @@ AUTH_SERVER_DEBUG_MODE: bool = (
     os_environ.get("AUTH_SERVER_DEBUG_MODE", "True") == "True"
 )  # enable/disable debug mode for flask built-in server
 # (required to be False to simulate production environment) (see production_scripts/README.txt)
-AUTH_SERVER_RATE_LIMIT: bool = (
-    os_environ.get("AUTH_SERVER_RATE_LIMIT", "True") == "True"
-)  # enable/disable rate limiting on the auth server
 AUTH_SERVER_SSL_CERT: str = os_environ.get(
     "AUTH_SERVER_SSL_CERT", ""
 )  # path to SSL certificate file (leave empty to disable SSL)
@@ -112,8 +110,8 @@ LOG_INTERFACE_MAX_RETRIES: int = int(
     os_environ.get("LOG_INTERFACE_MAX_RETRIES", 5)
 )  # maximum number of retries for logging interface
 LOG_INTERFACE_BATCH_DELAY: int = int(
-    os_environ.get("LOG_INTERFACE_BATCH_DELAY", 30)
-)  # delay (in seconds) between retries for logging interface
+    os_environ.get("LOG_INTERFACE_BATCH_DELAY", 15)
+)  # delay (in seconds) between batch of logs sent to the log server by the logging interface
 
 # Database configuration
 DB_HOST = os_environ.get("DB_HOST", "localhost")  # database host
@@ -131,17 +129,49 @@ SQLALCHEMY_TRACK_MODIFICATIONS = (
 )  # disable/enable for flask-sql alchemy to track modifications
 # (will have major performance impact, recommended to keep it disabled)
 
-# Miscellaneous settings
 # Rate limiting settings
-RATE_LIMIT_MAX_REQUESTS: int = int(
-    os_environ.get("RATE_LIMIT_MAX_REQUESTS", 50)
-)  # max requests per time window
-RATE_LIMIT_CACHE_SIZE: int = int(
-    os_environ.get("RATE_LIMIT_CACHE_SIZE", 1000)
-)  # number of unique clients to track
-RATE_LIMIT_CACHE_TTL: int = int(
-    os_environ.get("RATE_LIMIT_CACHE_TTL", 10)
-)  # time window (in seconds) for rate limiting
+def _parse_rate_limit_tiers() -> Dict[str, Dict[str, int]]:
+    """
+    Parse rate limit tiers from JSON environment variable.
+    Validates that all tiers have required keys and positive integer values.
+    """
+    
+    default_tiers = {
+        "default": {"max": 50, "window": 1},
+        "strict": {"max": 25, "window": 1},
+    }
+    try:
+        tiers_json = os_environ.get(
+            "RATE_LIMIT_TIERS",
+            '{"default": {"max": 50, "window": 1}, "strict": {"max": 25, "window": 1}}',
+        )
+        tiers = json_loads(tiers_json)
+        
+        # Validate the structure and values
+        if not isinstance(tiers, dict):
+            raise ValueError("RATE_LIMIT_TIERS must be a dictionary")
+        
+        for tier_name, tier_config in tiers.items():
+            if not isinstance(tier_config, dict):
+                raise ValueError(f"Tier '{tier_name}' must be a dictionary")
+            
+            if "max" not in tier_config or "window" not in tier_config:
+                raise ValueError(f"Tier '{tier_name}' must have 'max' and 'window' keys")
+            
+            # Validate that max and window are positive integers
+            if not isinstance(tier_config["max"], int) or tier_config["max"] <= 0:
+                raise ValueError(f"Tier '{tier_name}' 'max' must be a positive integer")
+            
+            if not isinstance(tier_config["window"], int) or tier_config["window"] <= 0:
+                raise ValueError(f"Tier '{tier_name}' 'window' must be a positive integer")
+        
+        return tiers
+    except Exception as e:
+        print(f"ERROR: Failed to parse RATE_LIMIT_TIERS: {e}")
+        return default_tiers
+
+# Rate limiting tiers with structure: {"tier_name": {"max": requests, "window": seconds}}
+RATE_LIMIT_TIERS: Dict[str, Dict[str, int]] = _parse_rate_limit_tiers()
 
 # HTTP status codes
 STATUS_CODES: Dict[str, int] = {

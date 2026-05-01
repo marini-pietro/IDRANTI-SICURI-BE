@@ -12,7 +12,7 @@ from flask_jwt_extended import jwt_required
 from marshmallow import fields, ValidationError
 
 # Local imports
-from api_server import ma
+from api_server import ma, limiter, get_rate_limit
 from models import db, Control, Hydrant
 from api_config import (
     STATUS_CODES,
@@ -63,6 +63,7 @@ class ControlResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}/<int:id_>"]
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def get(self, id_: int, identity: Dict[str, Any]) -> Response:
         """
         ---
@@ -147,6 +148,7 @@ class ControlResource(Resource):
         )
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def patch(self, id_: int, identity: Dict[str, Any]) -> Response:
         """
         ---
@@ -278,6 +280,7 @@ class ControlResource(Resource):
         )
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def delete(self, id_: int, identity: Dict[str, Any]) -> Response:
         """
         ---
@@ -384,6 +387,7 @@ class ControlPostResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}"]
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def post(self, identity: Dict[str, Any]) -> Response:
         """
         ---

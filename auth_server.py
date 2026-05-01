@@ -7,7 +7,7 @@ This server provides endpoints for user authentication, token validation, and he
 from base64 import urlsafe_b64decode
 from binascii import Error as BinasciiError
 from typing import Dict, Union, List, Any
-from os import system as os_system_cmd
+from subprocess import run as subprocess_run, PIPE as subprocess_PIPE
 from datetime import datetime as datetime_obj
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.exceptions import InvalidKey
@@ -20,9 +20,10 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt,
 )
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # Local imports
-from api_blueprints.blueprints_utils import is_rate_limited
 from logging_interface import create_interface
 from models import db, User
 from auth_config import (
@@ -31,7 +32,6 @@ from auth_config import (
     AUTH_API_VERSION,
     AUTH_SERVER_IDENTIFIER,
     AUTH_SERVER_DEBUG_MODE,
-    AUTH_SERVER_RATE_LIMIT,
     AUTH_SERVER_SSL_CERT,
     AUTH_SERVER_SSL_KEY,
     AUTH_SERVER_SSL,
@@ -48,6 +48,7 @@ from auth_config import (
     SQL_PATTERN,
     SQLALCHEMY_DATABASE_URI,
     SQLALCHEMY_TRACK_MODIFICATIONS,
+    RATE_LIMIT_TIERS,
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
     # To lessen verbosity, the prefix "AUTH_SERVER_"
@@ -80,6 +81,28 @@ db.init_app(auth_api)
 
 # Initialize JWT manager
 jwt = JWTManager(auth_api)
+
+# Helper function to get rate limit string for a specific tier
+def get_rate_limit(tier: str = "default") -> str:
+    """
+    Get rate limit string for a specific tier
+    
+    Args:
+        tier: Rate limit tier name (default: 'default')
+    
+    Returns:
+        Rate limit string in valid format
+    """
+    tier_config = RATE_LIMIT_TIERS.get(tier, RATE_LIMIT_TIERS["default"])
+    return f"{tier_config['max']}/{tier_config['window']}s"
+
+# Initialize Rate Limiter (flask-limiter)
+limiter = Limiter(
+    app=auth_api,
+    key_func=get_remote_address,
+    default_limits=[get_rate_limit("default")],
+    storage_uri="memory://",
+)
 
 # Initialize logging interface
 # Using factory function from logging_interface module
@@ -196,18 +219,10 @@ def is_input_safe(data: Union[str, List[str], Dict[Any, Any]]) -> bool:
     )
 
 
-@auth_api.before_request
-def enforce_rate_limit():
-    """Enforce rate limiting for all incoming requests."""
-
-    if AUTH_SERVER_RATE_LIMIT and is_rate_limited(request.remote_addr):
-        return (
-            jsonify({"error": "Rate limit exceeded"}),
-            STATUS_CODES["too_many_requests"],
-        )
 
 
 @auth_api.route(f"/auth/{AUTH_API_VERSION}/login", methods=["POST"])
+@limiter.limit(lambda: get_rate_limit("strict"))
 def login():
     """
     Login endpoint to authenticate users and generate JWT tokens.
@@ -339,9 +354,9 @@ def login():
     else:  # Invalid credentials (user not found or wrong password)
         return jsonify({"error": "invalid credentials"}), STATUS_CODES["unauthorized"]
 
-
-@auth_api.route(f"/auth/{AUTH_API_VERSION}/validate", methods=["POST"])
 @jwt_required()
+@auth_api.route(f"/auth/{AUTH_API_VERSION}/validate", methods=["POST"])
+@limiter.limit(lambda: get_rate_limit("strict"))
 def validate_token():
     """
     Validate endpoint to check the validity of a JWT token.
@@ -376,6 +391,7 @@ def validate_token():
 
 
 @auth_api.route(f"/auth/{AUTH_API_VERSION}/refresh", methods=["POST"])
+@limiter.limit(lambda: get_rate_limit("strict"))
 @jwt_required(refresh=True)
 def refresh():
     """
@@ -434,8 +450,9 @@ def refresh():
 
 
 # Endpoint to clear sent logs before a given timestamp
-# TODO: add authorization check (should only be for admins)
+@jwt_required()
 @auth_api.route(f"/auth/{AUTH_API_VERSION}/logs/clear", methods=["POST"])
+@limiter.limit(lambda: get_rate_limit("strict"))
 def clear_sent_logs():
     """
     ---
@@ -473,6 +490,23 @@ def clear_sent_logs():
     """
     timestamp_str: str | None = None
     try:
+        # Extract and validate admin authorization
+        identity = get_jwt_identity()
+        
+        # Fetch user from database to check role
+        user = User.query.filter_by(email=identity).first()
+        if not user or user.ruolo != "admin":
+            log(
+                message=f"Unauthorized log clear attempt by {identity} (not admin)",
+                level="WARNING",
+                message_id="CLRLOGSUNAUTH",
+                sd_tags={"endpoint": request.path, "identity": identity},
+            )
+            return (
+                jsonify({"error": "Only admins can clear logs"}),
+                STATUS_CODES["forbidden"],
+            )
+        
         # Parse JSON body and extract timestamp
         data = request.get_json(force=True)
         timestamp_str = data.get("timestamp")
@@ -534,6 +568,7 @@ def clear_sent_logs():
 
 
 @auth_api.route("/health", methods=["GET"])
+@limiter.limit(lambda: get_rate_limit("default"))
 def health_check():
     """
     Health check endpoint to verify the server is running.
@@ -613,13 +648,17 @@ if __name__ == "__main__":
             )
 
             # Start the server with waitress-serve
-            exit_code = os_system_cmd(
-                f"waitress-serve "
-                f"--host={AUTH_SERVER_HOST} "
-                f"--port={AUTH_SERVER_PORT} "
-                f"{'--url-scheme=https' if AUTH_SERVER_SSL else ''} "
-                f"auth_server:auth_api"
-            )
+            cmd = [
+                "waitress-serve",
+                f"--host={AUTH_SERVER_HOST}",
+                f"--port={AUTH_SERVER_PORT}",
+            ]
+            if AUTH_SERVER_SSL:
+                cmd.append("--url-scheme=https")
+            cmd.append("auth_server:auth_api")
+            
+            result = subprocess_run(cmd, capture_output=True, text=True)
+            exit_code = result.returncode
 
             # Log shutdown event
             log(

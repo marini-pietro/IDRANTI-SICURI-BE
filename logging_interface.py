@@ -11,7 +11,7 @@ import socket
 import threading
 from time import sleep as time_sleep
 from contextlib import contextmanager as contextlib_contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -39,12 +39,10 @@ class SQLiteUDPLogger:
         self.retry_delay = retry_delay
 
         # If no explicit DB path, create one with timestamp and service name
-        # Couldn't be in default params because datetime.utcnow() needs
+        # Couldn't be in default params because datetime.now(timezone.utc) needs
         # to be called at init time and service_name is needed
         if db_filename == "":
-            db_filename = f"{datetime.utcnow().strftime('%Y-%m-d_%H-%M-%S')}-{self.service_name}-log.db"
-
-        # TODO: fix deprecated usage of datetime.utcnow()
+            db_filename = f"{datetime.now(timezone.utc).strftime('%Y-%m-d_%H-%M-%S')}-{self.service_name}-log.db"
 
         # Always create in idranti-sicuri-logs subdirectory
         current_dir = Path(__file__).parent.absolute()
@@ -144,7 +142,7 @@ class SQLiteUDPLogger:
 
     def _get_current_utc_time(self) -> datetime:
         """Get current UTC time as datetime object"""
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     def _format_datetime_utc(self, dt: datetime) -> str:
         """Format datetime as UTC string without timezone (YYYY-MM-DD HH:MM:SS)"""

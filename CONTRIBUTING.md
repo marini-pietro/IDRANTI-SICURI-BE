@@ -21,7 +21,7 @@ Also, for larger contributions, such as a major rework of security handling, tho
 ## Guidelines
 
 - Follow existing project structure and naming conventions, especially in `api_blueprints/` (automatic blueprint detection won't work otherwise).
-- Linting, type hints and formatting (i personally used [black](https://pypi.org/project/black/) command) are preferable but not compulsory, general good written code will sufice.
+- Linting, type hints and formatting ([black](https://pypi.org/project/black/) command is recommended) are preferable but not compulsory, general good written code will suffice.
 - Add unit tests for new behaviors in `tests/` and ensure existing tests keep passing.
 - General engineering hygiene (e.g. keep secrets out of the repository (placeholder secrets can be left hardcoded but have to be clearly documents as such) and to not add credentials, private keys, or tokens to commits)
 

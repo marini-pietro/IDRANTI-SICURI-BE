@@ -17,16 +17,18 @@ from os import listdir as os_listdir
 from os.path import join as os_path_join
 from os.path import dirname as os_path_dirname
 from os.path import abspath as os_path_abspath
-from os import system as os_system_cmd
+from subprocess import run as subprocess_run, PIPE as subprocess_PIPE
 from importlib import import_module
 from flask import Flask, jsonify, request, Blueprint
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
 from flask_marshmallow import Marshmallow
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flasgger import Swagger
 from sqlalchemy.exc import OperationalError
 
 # Local imports
-from api_blueprints.blueprints_utils import log_interface, log, is_rate_limited
+from api_blueprints.blueprints_utils import log_interface, log
 from models import db
 from api_config import (
     API_SERVER_HOST,
@@ -43,7 +45,6 @@ from api_config import (
     JWT_TOKEN_LOCATION,
     JWT_REFRESH_TOKEN_EXPIRES,
     JWT_ACCESS_TOKEN_EXPIRES,
-    API_SERVER_RATE_LIMIT,
     IS_API_SERVER_SSL,
     API_SERVER_SSL_CERT,
     API_SERVER_SSL_KEY,
@@ -55,6 +56,7 @@ from api_config import (
     SQLALCHEMY_TRACK_MODIFICATIONS,
     SWAGGER_CONFIG,
     INVALID_JWT_MESSAGES,
+    RATE_LIMIT_TIERS,
 )
 
 # Create a Flask app
@@ -221,15 +223,39 @@ jwt = JWTManager(main_api)
 # Initialize Marshmallow
 ma = Marshmallow(main_api)
 
+# Helper function to construct rate limit string for a specific tier
+def get_rate_limit(tier: str = "default") -> str:
+    """
+    Get rate limit string for a specific tier
+    
+    Args:
+        tier: Rate limit tier name (default: 'default')
+    
+    Returns:
+        Rate limit string in valid format
+    """
+    tier_config = RATE_LIMIT_TIERS.get(tier, RATE_LIMIT_TIERS["default"])
+    return f"{tier_config['max']}/{tier_config['window']}s"
+
+# Initialize Rate Limiter (flask-limiter)
+limiter = Limiter(
+    app=main_api,
+    key_func=get_remote_address,
+    default_limits=[get_rate_limit("default")],
+    storage_uri="memory://",
+)
+
+
 # Initialize database (ORM abstraction layer)
 db.init_app(main_api)
 
 # Standardized error message constants for consistent JSON responses
+# f-string formatting is done at the point of response construction with format() function
+# so no f prefix needed
 ERROR_MESSAGES = {
     "bad_content_type": "Request body must be valid JSON with Content-Type: application/json",
     "empty_body": "Request body must not be empty",
     "invalid_json": "Invalid JSON format",
-    "rate_limited": "Rate limit exceeded",
     "sql_injection_key": "Invalid JSON key: {key} suspected SQL injection",
     "sql_injection_value": "Invalid JSON value for key '{key}': suspected SQL injection",
     "sql_injection_path": "Invalid path variable: {key} suspected SQL injection",
@@ -435,40 +461,16 @@ def _validate_user_data() -> Optional[Tuple[Any, int]]:
                 )
 
 
-def _enforce_rate_limit() -> Optional[Tuple[Any, int]]:
-    """
-    Helper: enforce rate limiting for incoming requests.
-    Uses `is_rate_limited` function imported from `api_blueprints.blueprints_utils`, TTLCache-based.
-    Rate limit related data is tracked per-client IP and shared between
-    all blueprints and this main API server.
-
-    Invoked in a controlled order by `pre_request_checks` function.
-    """
-
-    # Check if rate limiting is enabled
-    if API_SERVER_RATE_LIMIT:
-        client_ip = request.remote_addr  # Get client IP address
-        if is_rate_limited(
-            client_ip
-        ):  # Check if the client IP has exceeded the rate limit
-            return (
-                jsonify({"error": ERROR_MESSAGES["rate_limited"]}),
-                STATUS_CODES["too_many_requests"],
-            )
-
-
 @main_api.before_request
 def pre_request_checks() -> Optional[Tuple[Any, int]]:
     """
-    Combined before-request handler that runs all request-level validators in
-    a clearly documented order.
+    Combined before-request handler that runs all request-level validators.
 
-    Behavior and order:
+    Behavior:
     - Validation (_validate_user_data) runs first. If it returns a response
       (indicating invalid input), that response is immediately returned to the
       client.
-    - Rate limiting (_enforce_rate_limit) runs second. If it returns a
-      response (rate limit exceeded), that response is returned.
+    - Rate limiting is handled by flask-limiter decorator on individual endpoints.
 
     Note: Flask will call all registered `before_request` handlers in the
     order they were registered. By centralizing into `pre_request_checks`, the
@@ -477,11 +479,6 @@ def pre_request_checks() -> Optional[Tuple[Any, int]]:
 
     # Run validation first
     resp = _validate_user_data()
-    if resp is not None:
-        return resp
-
-    # Then apply rate limiting
-    resp = _enforce_rate_limit()
     if resp is not None:
         return resp
 
@@ -673,8 +670,9 @@ def custom_revoked_token_response(jwt_header, jwt_payload):
 
 
 # Endpoint to clear sent logs before a given timestamp
-# TODO: add authorization check (should only be for admins)
+@jwt_required()
 @main_api.route(f"/api/{API_VERSION}/logs/clear", methods=["POST"])
+@limiter.limit(lambda: get_rate_limit("strict"))
 def clear_sent_logs():
     """
     ---
@@ -711,6 +709,24 @@ def clear_sent_logs():
             description: Invalid or missing timestamp
     """
     try:
+        # Extract and validate admin authorization
+        identity = get_jwt_identity()
+        
+        # Fetch user from database to check role
+        from models import User
+        user = User.query.filter_by(email=identity).first()
+        if not user or user.ruolo != "admin":
+            log(
+                message=f"Unauthorized log clear attempt by {identity} (not admin)",
+                level="WARNING",
+                message_id="CLRLOGSUNAUTH",
+                sd_tags={"endpoint": request.path, "identity": identity},
+            )
+            return (
+                jsonify({"error": "Only admins can clear logs"}),
+                STATUS_CODES["forbidden"],
+            )
+        
         # Parse JSON body and extract timestamp
         data = request.get_json(force=True)
         timestamp_str: str = data.get("timestamp")
@@ -776,6 +792,7 @@ def clear_sent_logs():
 
 
 @main_api.route(f"/api/{API_VERSION}/health", methods=["GET"])
+@limiter.limit(lambda: get_rate_limit("default"))
 def health_check():
     """
     ---
@@ -1000,13 +1017,17 @@ if __name__ == "__main__":
             )
 
             # Start the server with waitress
-            exit_code = os_system_cmd(
-                f"waitress-serve "
-                f"--host={API_SERVER_HOST} "
-                f"--port={API_SERVER_PORT} "
-                f"{'--url-scheme=https' if IS_API_SERVER_SSL else ''} "
-                f"api_server:main_api"
-            )
+            cmd = [
+                "waitress-serve",
+                f"--host={API_SERVER_HOST}",
+                f"--port={API_SERVER_PORT}",
+            ]
+            if IS_API_SERVER_SSL:
+                cmd.append("--url-scheme=https")
+            cmd.append("api_server:main_api")
+            
+            result = subprocess_run(cmd, capture_output=True, text=True)
+            exit_code = result.returncode
 
             # Log shutdown event
             log(

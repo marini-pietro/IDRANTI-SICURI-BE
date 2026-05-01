@@ -7,7 +7,6 @@ database connection handling, logging, and token validation.
 # Standard library imports
 from functools import wraps
 from inspect import isclass as inspect_isclass, signature as inspect_signature
-from threading import Lock
 from typing import Dict, List, Union
 from cachetools import TTLCache
 from flask import Response, jsonify, make_response, request
@@ -29,9 +28,6 @@ from api_config import (
     JWT_VALIDATION_CACHE_SIZE,
     JWT_VALIDATION_CACHE_TTL,
     NOT_AUTHORIZED_MESSAGE,
-    RATE_LIMIT_CACHE_SIZE,
-    RATE_LIMIT_CACHE_TTL,
-    RATE_LIMIT_MAX_REQUESTS,
     ROLES,
     STATUS_CODES,
     URL_PREFIX,
@@ -292,28 +288,3 @@ def handle_options_request(resource_class) -> Response:
     response.headers["Access-Control-Allow-Credentials"] = "true"
 
     return response
-
-
-# Replace file-based rate-limiting with TTLCache
-rate_limit_cache = TTLCache(
-    maxsize=RATE_LIMIT_CACHE_SIZE, ttl=RATE_LIMIT_CACHE_TTL
-)  # Cache with a TTL equal to the time window
-rate_limit_lock = Lock()  # Lock for thread-safe file access
-
-
-def is_rate_limited(client_ip: str) -> bool:
-    """
-    Check if the client IP is rate-limited using an in-memory TTLCache.
-    """
-    with rate_limit_lock:
-        # Retrieve or initialize client data
-        client_data: dict[str, int] = rate_limit_cache.get(client_ip, {"count": 0})
-
-        # Increment the request count
-        client_data["count"] += 1
-
-        # Update the cache with the new client data
-        rate_limit_cache[client_ip] = client_data
-
-        # Check if the rate limit is exceeded
-        return client_data["count"] > RATE_LIMIT_MAX_REQUESTS

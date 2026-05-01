@@ -29,7 +29,7 @@ from api_config import (
     IS_AUTH_SERVER_SSL,
     AUTH_API_VERSION,
 )
-from api_server import ma
+from api_server import ma, limiter, get_rate_limit
 
 # Import User model for ORM
 from models import db, User
@@ -120,6 +120,7 @@ class UserResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}/<string:email>"]
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def get(self, email, identity) -> Response:
         """
         ---
@@ -201,6 +202,7 @@ class UserResource(Resource):
         )
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def patch(self, email, identity) -> Response:
         """
         ---
@@ -312,6 +314,7 @@ class UserResource(Resource):
         )
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def delete(self, email, identity) -> Response:
         """
         ---
@@ -409,6 +412,7 @@ class UserPostResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}"]
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def post(self, identity) -> Response:
         """
         ---
@@ -570,6 +574,7 @@ class UserLogin(Resource):
 
     ENDPOINT_PATHS = [f"/{BP_NAME}/auth/login"]
 
+    @limiter.limit(lambda: get_rate_limit("strict"))
     def post(self) -> Response:
         """
         ---

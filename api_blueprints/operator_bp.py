@@ -16,7 +16,7 @@ from marshmallow import fields, ValidationError
 
 # Local imports
 from models import db, Operator
-from api_server import ma
+from api_server import ma, limiter, get_rate_limit
 from api_config import (
     STATUS_CODES,
 )
@@ -88,6 +88,7 @@ class OperatorResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}/<string:CF>"]
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def get(self, CF, identity) -> Response:
         """
         ---
@@ -166,6 +167,7 @@ class OperatorResource(Resource):
         )
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def patch(self, CF, identity) -> Response:
         """
         ---
@@ -282,6 +284,7 @@ class OperatorResource(Resource):
         )
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def delete(self, CF, identity) -> Response:
         """
         ---
@@ -385,6 +388,7 @@ class OperatorPostResource(Resource):
     ENDPOINT_PATHS = [f"/{BP_NAME}"]
 
     @jwt_required()
+    @limiter.limit(lambda: get_rate_limit("default"))
     def post(self, identity) -> Response:
         """
         ---

@@ -11,3 +11,4 @@ psycopg2-binary
 marshmallow-sqlalchemy
 waitress
 python-dotenv
+flask-limiter
