@@ -82,6 +82,8 @@ API_SERVER_DEBUG_MODE: bool = (
     os_environ.get("API_SERVER_DEBUG_MODE", "True") == "True"
 )  # enable/disable debug mode for flask built-in server (required to be False to
 # simulate production environment) (see production_scripts/README.txt)
+# Whether the API server should enable rate limiting. Tests may toggle this flag.
+API_SERVER_RATE_LIMIT: bool = os_environ.get("API_SERVER_RATE_LIMIT", "True") == "True"
 API_SERVER_MAX_JSON_SIZE = int(
     os_environ.get("API_SERVER_MAX_JSON_SIZE", 50 * 10244)
 )  # max size (in bytes) of incoming JSON payloads
@@ -173,7 +175,7 @@ def _parse_rate_limit_tiers() -> Dict[str, Dict[str, int]]:
     Parse rate limit tiers from JSON environment variable.
     Validates that all tiers have required keys and positive integer values.
     """
-    
+
     default_tiers = {
         "default": {"max": 50, "window": 1},
         "strict": {"max": 25, "window": 1},
@@ -184,29 +186,34 @@ def _parse_rate_limit_tiers() -> Dict[str, Dict[str, int]]:
             '{"default": {"max": 50, "window": 1}, "strict": {"max": 25, "window": 1}}',
         )
         tiers = json_loads(tiers_json)
-        
+
         # Validate the structure and values
         if not isinstance(tiers, dict):
             raise ValueError("RATE_LIMIT_TIERS must be a dictionary")
-        
+
         for tier_name, tier_config in tiers.items():
             if not isinstance(tier_config, dict):
                 raise ValueError(f"Tier '{tier_name}' must be a dictionary")
-            
+
             if "max" not in tier_config or "window" not in tier_config:
-                raise ValueError(f"Tier '{tier_name}' must have 'max' and 'window' keys")
-            
+                raise ValueError(
+                    f"Tier '{tier_name}' must have 'max' and 'window' keys"
+                )
+
             # Validate that max and window are positive integers
             if not isinstance(tier_config["max"], int) or tier_config["max"] <= 0:
                 raise ValueError(f"Tier '{tier_name}' 'max' must be a positive integer")
-            
+
             if not isinstance(tier_config["window"], int) or tier_config["window"] <= 0:
-                raise ValueError(f"Tier '{tier_name}' 'window' must be a positive integer")
-        
+                raise ValueError(
+                    f"Tier '{tier_name}' 'window' must be a positive integer"
+                )
+
         return tiers
     except Exception as e:
         print(f"ERROR: Failed to parse RATE_LIMIT_TIERS: {e}")
         return default_tiers
+
 
 # Rate limiting tiers with structure: {"tier_name": {"max": requests, "window": seconds}}
 RATE_LIMIT_TIERS: Dict[str, Dict[str, int]] = _parse_rate_limit_tiers()
@@ -296,7 +303,7 @@ SQL_PATTERN = re_compile(
         ]
     )
     + r")\b"
-    + r"|(--|#|;)",  # Match special characters without word boundaries
+    + r"|(--|#|;|/\\*|\\*/)",  # Match special characters without word boundaries, including C-style comment delimiters
     RE_IGNORECASE,
 )
 

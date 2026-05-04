@@ -22,6 +22,7 @@ def test_hydrant_resource_endpoints_and_options():
     resp = bu.handle_options_request(cls)
     assert resp.status_code == 200
     assert "Allow" in resp.headers
+
     # Should at least include GET and OPTIONS
     assert "GET" in resp.headers["Allow"]
     assert "OPTIONS" in resp.headers["Allow"]
@@ -34,7 +35,10 @@ def test_hydrant_post_resource_options():
 
     cls = hydrant_bp.HydrantPostResource
     resp = bu.handle_options_request(cls)
+    
+    # The response should have status 200
     assert resp.status_code == 200
+    
     # Ensure POST is allowed for the POST resource's OPTIONS response
     assert "POST" in resp.headers["Allow"]
 

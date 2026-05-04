@@ -35,6 +35,7 @@ from auth_config import (
     AUTH_SERVER_SSL_CERT,
     AUTH_SERVER_SSL_KEY,
     AUTH_SERVER_SSL,
+    AUTH_SERVER_RATE_LIMIT,
     PBKDF2HMAC_SETTINGS,
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
@@ -82,19 +83,23 @@ db.init_app(auth_api)
 # Initialize JWT manager
 jwt = JWTManager(auth_api)
 
+
 # Helper function to get rate limit string for a specific tier
 def get_rate_limit(tier: str = "default") -> str:
     """
-    Get rate limit string for a specific tier
-    
-    Args:
-        tier: Rate limit tier name (default: 'default')
-    
-    Returns:
-        Rate limit string in valid format
+    Get rate limit string for a specific tier.
+
+    Flask-Limiter expects human-readable granularities (e.g. "per second").
+    This helper returns strings in the form "<max> per <window> second(s)".
     """
+
     tier_config = RATE_LIMIT_TIERS.get(tier, RATE_LIMIT_TIERS["default"])
-    return f"{tier_config['max']}/{tier_config['window']}s"
+    max_requests = tier_config["max"]
+    window = tier_config["window"]
+    if window == 1:
+        return f"{max_requests} per second"
+    return f"{max_requests} per {window} seconds"
+
 
 # Initialize Rate Limiter (flask-limiter)
 limiter = Limiter(
@@ -102,6 +107,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[get_rate_limit("default")],
     storage_uri="memory://",
+    enabled=True if AUTH_SERVER_RATE_LIMIT == True else False,
 )
 
 # Initialize logging interface
@@ -217,8 +223,6 @@ def is_input_safe(data: Union[str, List[str], Dict[Any, Any]]) -> bool:
     raise TypeError(
         "Input must be a string, list of strings, or dictionary with string keys and values."
     )
-
-
 
 
 @auth_api.route(f"/auth/{AUTH_API_VERSION}/login", methods=["POST"])
@@ -353,6 +357,7 @@ def login():
         )
     else:  # Invalid credentials (user not found or wrong password)
         return jsonify({"error": "invalid credentials"}), STATUS_CODES["unauthorized"]
+
 
 @jwt_required()
 @auth_api.route(f"/auth/{AUTH_API_VERSION}/validate", methods=["POST"])
@@ -492,7 +497,7 @@ def clear_sent_logs():
     try:
         # Extract and validate admin authorization
         identity = get_jwt_identity()
-        
+
         # Fetch user from database to check role
         user = User.query.filter_by(email=identity).first()
         if not user or user.ruolo != "admin":
@@ -506,7 +511,7 @@ def clear_sent_logs():
                 jsonify({"error": "Only admins can clear logs"}),
                 STATUS_CODES["forbidden"],
             )
-        
+
         # Parse JSON body and extract timestamp
         data = request.get_json(force=True)
         timestamp_str = data.get("timestamp")
@@ -656,7 +661,7 @@ if __name__ == "__main__":
             if AUTH_SERVER_SSL:
                 cmd.append("--url-scheme=https")
             cmd.append("auth_server:auth_api")
-            
+
             result = subprocess_run(cmd, capture_output=True, text=True)
             exit_code = result.returncode
 

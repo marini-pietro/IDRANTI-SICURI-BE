@@ -11,18 +11,21 @@ from api_server import main_api
 
 
 def test_create_response_valid():
-    """create_response should return a JSON Flask response for dict payloads."""
+    """
+    create_response should return a JSON Flask response for dict payloads.
+    """
     # create_response uses Flask's current_app, so we need to get an app context from Flask
-    # Gotcha: jsonify()/make_response rely on an application context (not a request context).
-    # Using app_context() is sufficient. If you use request data inside
-    # create_response in the future, switch to test_request_context().
+    # jsonify()/make_response rely on an application context (not a request context).
+    # Using app_context() is sufficient. If using request data inside
+    # create_response is necessary in the future, switch to test_request_context().
     with main_api.app_context():
         resp = bu.create_response({"hello": "world"}, 200)
+        
         # Basic shape and status
         assert isinstance(resp, Response)
         assert resp.status_code == 200
 
-        # Small improvement: ensure Content-Type is JSON. Without this,
+        # ensure Content-Type is JSON. Without this,
         # Flask's resp.get_json() may return None (it relies on a JSON
         # content type by default).
         assert "application/json" in resp.content_type
@@ -32,7 +35,10 @@ def test_create_response_valid():
 
 
 def test_create_response_type_errors():
-    """create_response should reject unsupported payload/status types."""
+    """
+    create_response should reject unsupported payload/status types.
+    """
+
     # Non-dict payloads should raise TypeError
     with pytest.raises(TypeError):
         bu.create_response("not a dict", 200)
@@ -50,6 +56,8 @@ def test_get_hateos_location_string():
 
     # Ensure the function returns a correctly formatted string
     loc = bu.get_hateos_location_string("/hydrants", 123)
+
+    # Basic checks for string format and content
     assert isinstance(loc, str)
     assert "://" in loc and "/hydrants/123" in loc
 
@@ -65,6 +73,7 @@ def test_handle_options_request_class():
         get = lambda self: None
         post = lambda self: None
 
+    # handle_options_request should return a response with status 200 and an Allow header
     resp = bu.handle_options_request(Dummy)
     assert resp.status_code == 200
     assert "Allow" in resp.headers
@@ -91,6 +100,8 @@ def test_create_response_accepts_list_of_dicts():
     with main_api.app_context():
         payload = [{"a": 1}, {"b": 2}]
         resp = bu.create_response(payload, 200)
+
+        # Verify response structure and content type
         assert resp.status_code == 200
         assert "application/json" in resp.content_type
         assert resp.get_json() == payload
@@ -108,6 +119,7 @@ def test_jwt_validation_required_missing_token_returns_unauthorized():
     with main_api.test_request_context("/", method="GET"):
         body, status = endpoint()
 
+    # The endpoint should return a 401 Unauthorized with an appropriate error message
     assert status == bu.STATUS_CODES["unauthorized"]
     assert body == {"error": "missing token"}
 
@@ -124,6 +136,7 @@ def test_check_authorization_rejects_invalid_role():
     with main_api.app_context():
         resp = endpoint(role="not-a-role")
 
+    # The endpoint should return a 400 Bad Request with an appropriate error message
     assert resp.status_code == bu.STATUS_CODES["bad_request"]
     assert resp.get_json() == {"error": "invalid user role"}
 

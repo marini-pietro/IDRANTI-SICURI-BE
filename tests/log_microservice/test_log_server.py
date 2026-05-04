@@ -40,7 +40,9 @@ def test_process_message_parsing_and_logging(monkeypatch):
     calls = []
 
     class DummyLogger:
-        """Minimal logger double used to capture emitted log records."""
+        """
+        Minimal logger double used to capture emitted log records.
+        """
 
         def log(self, log_type, message, origin):
             calls.append((log_type, message, origin))

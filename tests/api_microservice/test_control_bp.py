@@ -18,6 +18,8 @@ def test_control_resource_options():
     # Ensure that the class responds correctly to OPTIONS requests
     cls = control_bp.ControlResource
     resp = bu.handle_options_request(cls)
+    
+    # The response should have status 200 and include an Allow header with GET method
     assert resp.status_code == 200
     assert "Allow" in resp.headers
     assert "GET" in resp.headers["Allow"]
@@ -31,6 +33,8 @@ def test_control_post_resource_options():
     # Ensure that the class responds correctly to OPTIONS requests
     cls = control_bp.ControlPostResource
     resp = bu.handle_options_request(cls)
+
+    # The response should have status 200 and include an Allow header with POST method
     assert resp.status_code == 200
     assert "POST" in resp.headers["Allow"] or "OPTIONS" in resp.headers["Allow"]
 

@@ -17,6 +17,8 @@ def test_hash_password_format():
     """
 
     hp = user_bp.hash_password("secret123")
+
+    # The result should be a string containing a salt and hash separated by a colon
     assert isinstance(hp, str)
     assert ":" in hp
     salt, hashed = hp.split(":", 1)
@@ -45,7 +47,9 @@ def test_user_login_forwards_request(monkeypatch):
     # Use the app's request context to provide JSON body
     with main_api.test_request_context(json={"email": "u@x.com", "password": "p"}):
         resp = user_bp.UserLogin().post()
-        # It's a flask Response
+
+        # The response should have status 200 and include
+        # the access token from the dummy auth service
         assert resp.status_code == bu.STATUS_CODES["ok"]
         assert resp.get_json()["access_token"] == "tok"
 
@@ -66,8 +70,10 @@ def test_user_login_handles_unauthorized(monkeypatch):
     def fake_post(url, json=None, timeout=None):
         return DummyResp()
 
+    # Patch the requests_post function to return an unauthorized response
     monkeypatch.setattr(user_bp, "requests_post", fake_post)
 
+    # Use the app's request context to provide JSON body
     with main_api.test_request_context(json={"email": "u@x.com", "password": "p"}):
         resp = user_bp.UserLogin().post()
         assert resp.status_code == bu.STATUS_CODES["unauthorized"]
@@ -78,6 +84,8 @@ def test_hash_password_uses_random_salt():
     Two hashes of the same password should differ because salts are random.
     """
 
+    # Hash the same password twice and verify that the
+    # outputs are different due to random salts
     h1 = user_bp.hash_password("same-password")
     h2 = user_bp.hash_password("same-password")
     assert h1 != h2
@@ -105,7 +113,9 @@ def test_user_login_handles_upstream_timeout(monkeypatch):
 
     monkeypatch.setattr(user_bp, "requests_post", fake_post)
 
+    # Use the app's request context to provide JSON body
     with main_api.test_request_context(json={"email": "u@x.com", "password": "p"}):
         resp = user_bp.UserLogin().post()
 
+    # The response should have status 500 Internal Server Error due to the simulated timeout
     assert resp.status_code == bu.STATUS_CODES["internal_error"]

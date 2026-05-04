@@ -73,7 +73,8 @@ class SQLiteUDPLogger:
         with self._get_connection() as conn:
 
             # Main logs table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -97,7 +98,8 @@ class SQLiteUDPLogger:
                     -- Indexes for performance
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # Ensure "source" column exists on older databases
             cursor = conn.execute("PRAGMA table_info(logs)")
@@ -115,14 +117,16 @@ class SQLiteUDPLogger:
             )
 
             # Statistics table
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS log_stats (
                     date TEXT PRIMARY KEY,
                     total INTEGER DEFAULT 0,
                     sent INTEGER DEFAULT 0,
                     failed INTEGER DEFAULT 0
                 )
-            """)
+            """
+            )
 
     @property
     def _connection(self):
@@ -437,13 +441,15 @@ class SQLiteUDPLogger:
             row = cursor.fetchone()
 
             # Get recent failures
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT message, error_message, attempts, timestamp
                 FROM logs
                 WHERE sent = 0 AND attempts > 0
                 ORDER BY last_attempt DESC
                 LIMIT 5
-            """)
+            """
+            )
             recent_failures = cursor.fetchall()
 
         return {

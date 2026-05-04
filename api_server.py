@@ -57,6 +57,7 @@ from api_config import (
     SWAGGER_CONFIG,
     INVALID_JWT_MESSAGES,
     RATE_LIMIT_TIERS,
+    API_SERVER_RATE_LIMIT,
 )
 
 # Create a Flask app
@@ -223,19 +224,22 @@ jwt = JWTManager(main_api)
 # Initialize Marshmallow
 ma = Marshmallow(main_api)
 
+
 # Helper function to construct rate limit string for a specific tier
 def get_rate_limit(tier: str = "default") -> str:
     """
-    Get rate limit string for a specific tier
-    
-    Args:
-        tier: Rate limit tier name (default: 'default')
-    
-    Returns:
-        Rate limit string in valid format
+    Get rate limit string for a specific tier.
+
+    Flask-Limiter expects human-readable granularities (e.g. "per second").
+    This helper returns strings in the form "<max> per <window> second(s)".
     """
     tier_config = RATE_LIMIT_TIERS.get(tier, RATE_LIMIT_TIERS["default"])
-    return f"{tier_config['max']}/{tier_config['window']}s"
+    max_requests = tier_config["max"]
+    window = tier_config["window"]
+    if window == 1:
+        return f"{max_requests} per second"
+    return f"{max_requests} per {window} seconds"
+
 
 # Initialize Rate Limiter (flask-limiter)
 limiter = Limiter(
@@ -243,6 +247,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[get_rate_limit("default")],
     storage_uri="memory://",
+    enabled=True if API_SERVER_RATE_LIMIT == True else False,
 )
 
 
@@ -528,6 +533,13 @@ def _sanitize_callback(callback: object, max_len: int = 200, fp_len: int = 12):
     return short, fp
 
 
+# Rate limiting is handled by `flask-limiter` decorators and configuration.
+# The previous `is_rate_limited` hook was removed to simplify runtime codepaths
+# and avoid having two separate enforcement mechanisms. Tests should exercise
+# the limiter behavior directly (e.g. by toggling `limiter.enabled` or using
+# the `limiter` decorators on endpoints).
+
+
 # Handle unauthorized access (missing token)
 @jwt.unauthorized_loader
 def custom_unauthorized_response(callback):
@@ -711,9 +723,10 @@ def clear_sent_logs():
     try:
         # Extract and validate admin authorization
         identity = get_jwt_identity()
-        
+
         # Fetch user from database to check role
         from models import User
+
         user = User.query.filter_by(email=identity).first()
         if not user or user.ruolo != "admin":
             log(
@@ -726,7 +739,7 @@ def clear_sent_logs():
                 jsonify({"error": "Only admins can clear logs"}),
                 STATUS_CODES["forbidden"],
             )
-        
+
         # Parse JSON body and extract timestamp
         data = request.get_json(force=True)
         timestamp_str: str = data.get("timestamp")
@@ -791,9 +804,14 @@ def clear_sent_logs():
         )
 
 
-@main_api.route(f"/api/{API_VERSION}/health", methods=["GET"])
-@limiter.limit(lambda: get_rate_limit("default"))
+@main_api.route(f"/api/{API_VERSION}/health", methods=["GET"]) 
 def health_check():
+    """Simple health check endpoint.
+
+    Rate limiting for operational endpoints should be applied via
+    `@limiter.limit(...)` decorators. The previous test hook was removed.
+    """
+
     """
     ---
     tags:
@@ -1025,7 +1043,7 @@ if __name__ == "__main__":
             if IS_API_SERVER_SSL:
                 cmd.append("--url-scheme=https")
             cmd.append("api_server:main_api")
-            
+
             result = subprocess_run(cmd, capture_output=True, text=True)
             exit_code = result.returncode
 
