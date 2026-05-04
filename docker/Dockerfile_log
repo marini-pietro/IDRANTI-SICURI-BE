@@ -43,21 +43,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies:
-# Copy only requirements.txt first (optimization for Docker build cache)
+# Copy only log_requirements.txt first (optimization for Docker build cache)
 #
 # Why separate? Docker layers are cached independently.
 # If you copy all files first, then install dependencies:
 #   - Any code change invalidates the cache
 #   - Dependencies reinstall unnecessarily (slow)
-# By copying requirements.txt first:
-#   - Only requirements.txt changes trigger dependency rebuild
+# By copying log_requirements.txt first:
+#   - Only log_requirements.txt changes trigger dependency rebuild
 #   - Code changes reuse the cached dependency layer (fast)
 #
-COPY log_requirements.txt .
+COPY requirements/log_requirements.txt requirements/log_requirements.txt
 
 # Install Python packages:
 # --no-cache-dir: Don't keep pip's local cache in final image
-RUN pip install --no-cache-dir -r log_requirements.txt
+RUN pip install --no-cache-dir -r requirements/log_requirements.txt
 
 # Copy Application Code
 # Copy entire project directory into container

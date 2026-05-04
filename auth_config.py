@@ -6,8 +6,6 @@ This module also provides default values and explanations for each configuration
 """
 
 # Library imports
-from traceback import print_exc as traceback_print_exc
-from sys import exit as sys_exit
 from typing import Dict
 from datetime import timedelta
 from os import environ as os_environ

@@ -22,6 +22,7 @@ from api_config import (
     IS_API_SERVER_SSL,
     AUTH_SERVER_HOST,
     AUTH_SERVER_PORT,
+    AUTH_API_VERSION,
     IS_AUTH_SERVER_SSL,
     JWT_JSON_KEY,
     JWT_QUERY_STRING_NAME,
@@ -111,7 +112,7 @@ def jwt_validation_required(func):
                 # Proper json body and headers are not needed
                 scheme = "https" if IS_AUTH_SERVER_SSL else "http"
                 auth_validate_url = (
-                    f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/validate"
+                    f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/validate"
                 )
                 response: Response = requests_post(
                     auth_validate_url,

@@ -17,7 +17,7 @@ from os import listdir as os_listdir
 from os.path import join as os_path_join
 from os.path import dirname as os_path_dirname
 from os.path import abspath as os_path_abspath
-from subprocess import run as subprocess_run, PIPE as subprocess_PIPE
+from subprocess import run as subprocess_run
 from importlib import import_module
 from flask import Flask, jsonify, request, Blueprint
 from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
@@ -36,6 +36,7 @@ from api_config import (
     API_SERVER_DEBUG_MODE,
     STATUS_CODES,
     API_VERSION,
+    AUTH_API_VERSION,
     URL_PREFIX,
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
@@ -88,7 +89,7 @@ swagger_template = {
     "paths": {
         # Only include endpoints data from other services here.
         # Do NOT include API server blueprint endpoints here since they are automatically generated.
-        "/auth/login": {
+        f"/auth/{AUTH_API_VERSION}/login": {
             "post": {
                 "tags": ["Authentication (auth_server)"],
                 "summary": "Login endpoint to authenticate users and generate JWT tokens.",
@@ -133,7 +134,7 @@ swagger_template = {
                 },
             }
         },
-        "/auth/validate": {
+        f"/auth/{AUTH_API_VERSION}/validate": {
             "post": {
                 "tags": ["Authentication (auth_server)"],
                 "summary": "Validate endpoint to check the validity of a JWT token.",
@@ -157,7 +158,7 @@ swagger_template = {
                 },
             }
         },
-        "/auth/refresh": {
+        f"/auth/{AUTH_API_VERSION}/refresh": {
             "post": {
                 "tags": ["Authentication (auth_server)"],
                 "summary": "Refresh endpoint to issue a new access token using a refresh token.",

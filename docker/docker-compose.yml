@@ -62,7 +62,7 @@ services:
   # API Server Service (Main REST API)
   api:
     # Build from Dockerfile in docker/ folder instead of using pre-built image since we need to install dependencies and copy project files.
-    # context: Where to find files needed for build (project root, for api_requirements.txt)
+    # context: Where to find files needed for build (project root, for requirements/api_requirements.txt)
     # dockerfile: Which Dockerfile to use
     build:
       context: ..                      # Parent directory (project root)

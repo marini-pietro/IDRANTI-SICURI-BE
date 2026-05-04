@@ -70,7 +70,7 @@ http(s)://{api_host}:{api_port}/docs/
 (with default configuration for development):
 
 ```xml
-http://locahost:5000/docs/
+http://localhost:5000/docs/
 ``` 
 
 with the relative configuration in `api_config.py` and template in `api_server.py`.  
@@ -126,7 +126,7 @@ To run the tests, use the following command from the project root:
 python -m pytest tests/
 ```
 
-Note: Before executing the tests it is necesary to first install the pytest library (it is not included in the requirements.txt file because it is only needed for testing and not for running the application) with the following command:
+Note: Before executing the tests it is necesary to first install the pytest library (it is not included in the relevant requirements.txt file because it is only needed for testing and not for running the application) with the following command:
 ```bash
 pip install pytest
 ```
@@ -134,7 +134,7 @@ pip install pytest
 ## Security measures
 
 This project implements several security measures.  
-Highlights below reference the code and the config values in `config.py`.
+Highlights below reference the code and the config values in `*_config.py` files.
 
 - Password hashing and verification
 	- Passwords are stored and validated using PBKDF2-HMAC-SHA256 (`PBKDF2HMAC`), it is recommended to play around with the configuration values for better complexity if the latency budget allows it. The verification function in `auth_server.py`:
@@ -149,7 +149,7 @@ Highlights below reference the code and the config values in `config.py`.
 	- The application checks tokens from multiple locations (headers, query string, and JSON) but you should avoid `query_string` in production to tokens leaking in logs.
 
 - Input validation and SQL-injection scanning
-	- A precompiled regex named `SQL_PATTERN` in `config.py` is used to detect common SQL keywords and suspicious characters. Functions like `is_input_safe()` (in `auth_server.py`) and blueprint-level checks validate incoming JSON keys and values.
+	- A precompiled regex named `SQL_PATTERN` in `*_config.py` files is used to detect common SQL keywords and suspicious characters. Functions like `is_input_safe()` (in `auth_server.py`) and blueprint-level checks validate incoming JSON keys and values.
 	- N.B: This scanning is a helpful heuristic but not a replacement for parameterized queries. All DB access should use SQLAlchemy ORM or parameterized queries (SQLAlchemy handles that by default).
 	- To avoid ReDos a maximum length for a scannable string and maximum recursion depth (for scanning complex data types that may contain other contain complex data types and so on) are defined (configurable via `.env` file).
 
@@ -164,7 +164,7 @@ Highlights below reference the code and the config values in `config.py`.
 	- Structured logs include service name, hostname, level, message text, optional message id, and optional structured tags.
 
 - Transport security (TLS)
-	- `api_server.py` and `auth_server.py` support SSL if certificate and key paths are provided in `config.py` (`*_SSL_CERT`, `*_SSL_KEY`, and `*_SSL` flags).
+	- `api_server.py` and `auth_server.py` support SSL if certificate and key paths are provided in `*_config.py` files (`*_SSL_CERT`, `*_SSL_KEY`, and `*_SSL` flags).
 
 ## Configuration and secrets
 
@@ -176,7 +176,7 @@ Unavoidably, there is some overlap between some of the configuration files, thes
 
 - Confirm token lifetimes and locations are suited to your deployment. Avoid `query_string` token locations in public-facing environments.
 
-- The `*.config.py` files centralize default settings. Sensitive values in the repo (like the default `JWT_SECRET_KEY` and DB credentials) are for convenience in local development only. For production, you should:
+- The `*_config.py` files centralize default settings. Sensitive values in the repo (like the default `JWT_SECRET_KEY` and DB credentials) are for convenience in local development only. For production, you should:
 	- Replace `JWT_SECRET_KEY` with a long, randomly generated secret (recommended >= 32 bytes). Use an environment variable or secret manager.
 	- Use secure DB credentials and restrict DB network access.
 	- Disable `API_SERVER_DEBUG_MODE` and `AUTH_SERVER_DEBUG_MODE` in production.
@@ -210,7 +210,7 @@ Only to be used as a sort of checklist, use a proper deployment process.
 
 - **JWT configuration mismatch**: mismatched `JWT_SECRET_KEY` or `JWT_ALGORITHM` between `auth_server.py` and `api_server.py`.  
 - **User authentication failures**: verify the stored password format and PBKDF2 parameters (iterations, hash length).  
-- **Log messages or requests are dropped**: check `config.py` rate limit values and the log server's delayed queue size if messages are dropped.  
+- **Log messages or requests are dropped**: check rate limit values in `*_config.py` files and the log server's delayed queue size if messages are dropped.  
 - **Unable to load configuration (No .env file found)**: The suffix .example has not been removed from the .env file.  
 - **Unable to execute quick start/kill scripts to run the code on Windows based machines**: Execute this command in the powershell terminal `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Unrestricted`, this will allow script execution only for the current terminal session and not affect any other sessions or system-wide settings.
 - **Unable to execuite quick start/kill scripts to run the code on Linux based machines**: Ensure the scripts have the proper permission (i.e you have properly used the `chmod` command).

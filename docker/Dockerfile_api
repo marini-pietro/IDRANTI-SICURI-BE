@@ -41,13 +41,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*  # Clean up package cache to reduce image size
 
 # Copy and install Python dependencies:
-# Copy api_requirements.txt first (before application code) for better caching
+# Copy requirements/api_requirements.txt first (before application code) for better caching
 # If only code changes (not dependencies), Docker reuses this cached layer
-COPY api_requirements.txt .
+COPY requirements/api_requirements.txt requirements/api_requirements.txt
 
-# Install Python packages: from api_requirements.txt
+# Install Python packages: from requirements/api_requirements.txt
 # Using pip in the container ensures consistent dependency versions
-RUN pip install --no-cache-dir -r api_requirements.txt
+RUN pip install --no-cache-dir -r requirements/api_requirements.txt
 
 # Copy Application Code
 # Copy entire project directory into container

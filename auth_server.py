@@ -7,7 +7,7 @@ This server provides endpoints for user authentication, token validation, and he
 from base64 import urlsafe_b64decode
 from binascii import Error as BinasciiError
 from typing import Dict, Union, List, Any
-from subprocess import run as subprocess_run, PIPE as subprocess_PIPE
+from subprocess import run as subprocess_run
 from datetime import datetime as datetime_obj
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.exceptions import InvalidKey
