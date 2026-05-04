@@ -232,7 +232,7 @@ STATUS_CODES: Dict[str, int] = {
     "created": 201,
     "ok": 200,
     "no_content": 204,
-    "internal_error": 500,
+    "internal_server_error": 500,
     "service_unavailable": 503,
 }
 

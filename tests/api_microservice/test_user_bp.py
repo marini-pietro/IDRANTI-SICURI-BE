@@ -118,4 +118,4 @@ def test_user_login_handles_upstream_timeout(monkeypatch):
         resp = user_bp.UserLogin().post()
 
     # The response should have status 500 Internal Server Error due to the simulated timeout
-    assert resp.status_code == bu.STATUS_CODES["internal_error"]
+    assert resp.status_code == bu.STATUS_CODES["internal_server_error"]

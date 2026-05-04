@@ -15,6 +15,7 @@ from json import JSONDecodeError
 from os.path import abspath as os_path_abspath
 from os.path import dirname as os_path_dirname
 from os.path import join as os_path_join
+import os
 import socket as socket_lib
 from selectors import DefaultSelector as selectors_DefaultSelector
 from selectors import EVENT_READ as selectors_EVENT_READ
@@ -103,10 +104,10 @@ class Logger:
             self.logger.removeHandler(handler)
 
 
-# Generate the log file path so that it is in the same directory as this script
-log_file_path: str = os_path_join(
-    os_path_dirname(os_path_abspath(__file__)), LOG_FILE_NAME
-)
+# Generate the log file path inside a 'logs' subdirectory next to this script
+logs_dir: str = os_path_join(os_path_dirname(os_path_abspath(__file__)), "logs")
+os.makedirs(logs_dir, exist_ok=True) # Ensure the logs directory exists (if it doesn't exist, it will be created)
+log_file_path: str = os_path_join(logs_dir, LOG_FILE_NAME)
 
 # Initialize the logger
 logger = Logger(

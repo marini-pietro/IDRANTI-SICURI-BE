@@ -151,7 +151,7 @@ def jwt_validation_required(func):
                 )
                 return (
                     jsonify({"error": "internal server error while validating token"}),
-                    STATUS_CODES["internal_error"],
+                    STATUS_CODES["internal_server_error"],
                 )
 
         # Pass the extracted identity to the wrapped function

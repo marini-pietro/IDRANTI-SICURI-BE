@@ -722,7 +722,14 @@ def clear_sent_logs():
     """
     try:
         # Extract and validate admin authorization
-        identity = get_jwt_identity()
+        try:
+            identity = get_jwt_identity()
+        except RuntimeError:
+            # JWT not present or invalid; return standardized missing token response
+            return (
+                jsonify(INVALID_JWT_MESSAGES["missing_token"][0]),
+                INVALID_JWT_MESSAGES["missing_token"][1],
+            )
 
         # Fetch user from database to check role
         from models import User

@@ -666,7 +666,7 @@ class UserLogin(Resource):
             # Return error response
             return create_response(
                 message={"error": "authentication service unavailable"},
-                status_code=STATUS_CODES["internal_error"],
+                status_code=STATUS_CODES["internal_server_error"],
             )
 
         # Handle response from the authentication service
@@ -716,7 +716,7 @@ class UserLogin(Resource):
             )
 
         if (
-            response.status_code == STATUS_CODES["internal_error"]
+            response.status_code == STATUS_CODES["internal_server_error"]
         ):  # Internal server error
             # Log the internal error
             log(
@@ -733,7 +733,7 @@ class UserLogin(Resource):
             # Return internal error response
             return create_response(
                 message={"error": "Internal error"},
-                status_code=STATUS_CODES["internal_error"],
+                status_code=STATUS_CODES["internal_server_error"],
             )
 
         else:
@@ -754,7 +754,7 @@ class UserLogin(Resource):
             # Return generic internal error response
             return create_response(
                 message={"error": "Unexpected error during login"},
-                status_code=STATUS_CODES["internal_error"],
+                status_code=STATUS_CODES["internal_server_error"],
             )
 
     def options(self) -> Response:

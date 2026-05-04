@@ -44,9 +44,9 @@ class SQLiteUDPLogger:
         if db_filename == "":
             db_filename = f"{datetime.now(timezone.utc).strftime('%Y-%m-d_%H-%M-%S')}-{self.service_name}-log.db"
 
-        # Always create in idranti-sicuri-logs subdirectory
+        # Always create in logs subdirectory
         current_dir = Path(__file__).parent.absolute()
-        logs_dir = current_dir / "idranti-sicuri-logs"
+        logs_dir = current_dir / "logs"
 
         # Create directory if it doesn't exist
         logs_dir.mkdir(parents=True, exist_ok=True)
