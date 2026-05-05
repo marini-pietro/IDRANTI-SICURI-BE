@@ -14,7 +14,7 @@ from marshmallow import fields, ValidationError
 # Local imports
 from api_server import ma, limiter, get_rate_limit
 from models import db, Control, Hydrant
-from api_config import (
+from configs.api_config import (
     STATUS_CODES,
 )
 from .blueprints_utils import (

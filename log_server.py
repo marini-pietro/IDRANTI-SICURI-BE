@@ -24,7 +24,7 @@ from collections import defaultdict, deque
 from cachetools import TTLCache
 
 # Local imports
-from log_config import (
+from configs.log_config import (
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
     LOG_FILE_NAME,

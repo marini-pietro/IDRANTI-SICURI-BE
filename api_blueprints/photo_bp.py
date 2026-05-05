@@ -17,7 +17,7 @@ from sqlalchemy import exists
 # Local imports
 from models import db, Photo, Hydrant
 from api_server import ma, limiter, get_rate_limit
-from api_config import (
+from configs.api_config import (
     STATUS_CODES,
 )
 from .blueprints_utils import (

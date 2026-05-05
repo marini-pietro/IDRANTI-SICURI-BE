@@ -16,7 +16,7 @@ from requests.exceptions import RequestException
 
 # Local imports
 from logging_interface import create_interface
-from api_config import (
+from configs.api_config import (
     API_SERVER_HOST,
     API_SERVER_PORT,
     IS_API_SERVER_SSL,

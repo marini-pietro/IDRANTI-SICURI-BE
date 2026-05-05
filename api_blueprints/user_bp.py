@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from marshmallow import fields, ValidationError
 
 # Local imports
-from api_config import (
+from configs.api_config import (
     AUTH_SERVER_HOST,
     AUTH_SERVER_PORT,
     PBKDF2HMAC_SETTINGS,

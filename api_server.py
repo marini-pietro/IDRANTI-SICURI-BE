@@ -30,7 +30,7 @@ from sqlalchemy.exc import OperationalError
 # Local imports
 from api_blueprints.blueprints_utils import log_interface, log
 from models import db
-from api_config import (
+from configs.api_config import (
     API_SERVER_HOST,
     API_SERVER_PORT,
     API_SERVER_DEBUG_MODE,

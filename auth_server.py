@@ -26,7 +26,7 @@ from flask_limiter.util import get_remote_address
 # Local imports
 from logging_interface import create_interface
 from models import db, User
-from auth_config import (
+from configs.auth_config import (
     AUTH_SERVER_HOST,
     AUTH_SERVER_PORT,
     AUTH_API_VERSION,

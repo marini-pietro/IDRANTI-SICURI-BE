@@ -10,7 +10,7 @@ These tests verify:
 
 from api_server import main_api
 from auth_server import auth_api
-from api_config import API_VERSION, STATUS_CODES
+from configs.api_config import API_VERSION, STATUS_CODES
 
 
 def test_auth_health_check():
