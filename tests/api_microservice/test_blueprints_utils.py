@@ -20,7 +20,7 @@ def test_create_response_valid():
     # create_response is necessary in the future, switch to test_request_context().
     with main_api.app_context():
         resp = bu.create_response({"hello": "world"}, 200)
-        
+
         # Basic shape and status
         assert isinstance(resp, Response)
         assert resp.status_code == 200

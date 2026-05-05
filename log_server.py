@@ -106,7 +106,9 @@ class Logger:
 
 # Generate the log file path inside a 'logs' subdirectory next to this script
 logs_dir: str = os_path_join(os_path_dirname(os_path_abspath(__file__)), "logs")
-os.makedirs(logs_dir, exist_ok=True) # Ensure the logs directory exists (if it doesn't exist, it will be created)
+os.makedirs(
+    logs_dir, exist_ok=True
+)  # Ensure the logs directory exists (if it doesn't exist, it will be created)
 log_file_path: str = os_path_join(logs_dir, LOG_FILE_NAME)
 
 # Initialize the logger

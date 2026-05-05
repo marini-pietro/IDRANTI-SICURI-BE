@@ -17,7 +17,7 @@ def test_operator_resource_options_and_validation():
 
     cls = operator_bp.OperatorResource
     resp = bu.handle_options_request(cls)
-    
+
     # The response should have status 200 and include an Allow header with GET method
     assert resp.status_code == 200
     assert "GET" in resp.headers["Allow"]
@@ -52,5 +52,5 @@ def test_operator_safe_string_accepts_clean_value():
     """
     safe_string should accept normal alphabetic values.
     """
-    
+
     assert operator_bp.safe_string("Mario") == "Mario"

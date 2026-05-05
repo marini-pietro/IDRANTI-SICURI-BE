@@ -111,9 +111,7 @@ def jwt_validation_required(func):
                 # Send a request to the authentication server to validate the token
                 # Proper json body and headers are not needed
                 scheme = "https" if IS_AUTH_SERVER_SSL else "http"
-                auth_validate_url = (
-                    f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/validate"
-                )
+                auth_validate_url = f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/validate"
                 response: Response = requests_post(
                     auth_validate_url,
                     headers={"Authorization": f"Bearer {token}"},

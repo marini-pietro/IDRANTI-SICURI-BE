@@ -23,7 +23,9 @@ def test_auth_health_check():
 def test_api_protected_endpoint_requires_token():
     client = main_api.test_client()
     # call protected endpoint without any JWT
-    resp = client.post(f"/api/{API_VERSION}/logs/clear", json={"timestamp": "2025-01-01 00:00:00"})
+    resp = client.post(
+        f"/api/{API_VERSION}/logs/clear", json={"timestamp": "2025-01-01 00:00:00"}
+    )
     assert resp.status_code == STATUS_CODES["unauthorized"]
     body = resp.get_json()
     assert isinstance(body, dict)

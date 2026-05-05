@@ -9,6 +9,7 @@ import api_server
 
 # This file contains unit tests for the functions and features defined in api_server.py
 
+
 # Parametrized test for is_input_safe function
 # (test function will be called once for each tuple in the list)
 @pytest.mark.parametrize(
@@ -66,10 +67,10 @@ def test_health_check_endpoint(client):
     """
     Test that the health check endpoint returns the expected response.
     """
-    
+
     # Uses the test client fixture to call the health endpoint and verify response
     resp = client.get(f"/api/{API_VERSION}/health")
-    
+
     assert resp.status_code == STATUS_CODES["ok"]
     assert resp.get_json() == {"status": "ok"}
 
@@ -78,7 +79,7 @@ def test_check_size_within_limit_nested_data():
     """
     Ensure recursive size checks reject oversized nested strings.
     """
-    
+
     small = {"a": ["ok", {"b": "fine"}]}
     large = {"a": ["ok", {"b": "x" * 32}]}
 
@@ -105,7 +106,7 @@ def test_validate_user_data_rejects_empty_json_body():
     """
     POST requests with empty JSON objects should be rejected.
     """
-    
+
     with api_server.main_api.test_request_context(
         f"/api/{API_VERSION}/health", method="POST", json={}
     ):
@@ -121,7 +122,7 @@ def test_validate_user_data_rejects_sql_injection_in_json_key():
     """
     Validation should reject suspicious SQL payloads in JSON keys.
     """
-    
+
     bad_payload = {"DROP TABLE users": "value"}
 
     with api_server.main_api.test_request_context(

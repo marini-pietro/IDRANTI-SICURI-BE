@@ -35,10 +35,10 @@ def test_hydrant_post_resource_options():
 
     cls = hydrant_bp.HydrantPostResource
     resp = bu.handle_options_request(cls)
-    
+
     # The response should have status 200
     assert resp.status_code == 200
-    
+
     # Ensure POST is allowed for the POST resource's OPTIONS response
     assert "POST" in resp.headers["Allow"]
 

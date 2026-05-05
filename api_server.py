@@ -563,7 +563,6 @@ def custom_unauthorized_response(callback):
             "port": API_SERVER_PORT,
         },
         message_id="MSNTOK",
-        priority=1,  # High priority for security/auth failures
     )
 
     return (
@@ -594,7 +593,6 @@ def custom_invalid_token_response(callback):
             "port": API_SERVER_PORT,
         },
         message_id="INVTOK",
-        priority=1,  # High priority for security/auth failures
     )
 
     return (
@@ -812,7 +810,7 @@ def clear_sent_logs():
         )
 
 
-@main_api.route(f"/api/{API_VERSION}/health", methods=["GET"]) 
+@main_api.route(f"/api/{API_VERSION}/health", methods=["GET"])
 def health_check():
     """Simple health check endpoint.
 

@@ -41,7 +41,9 @@ AUTH_SERVER_DEBUG_MODE: bool = (
 )  # enable/disable debug mode for flask built-in server
 # (required to be False to simulate production environment) (see production_scripts/README.txt)
 # Whether the auth server should enable rate limiting. Tests may toggle this flag.
-AUTH_SERVER_RATE_LIMIT: bool = os_environ.get("AUTH_SERVER_RATE_LIMIT", "True") == "True"
+AUTH_SERVER_RATE_LIMIT: bool = (
+    os_environ.get("AUTH_SERVER_RATE_LIMIT", "True") == "True"
+)
 AUTH_SERVER_SSL_CERT: str = os_environ.get(
     "AUTH_SERVER_SSL_CERT", ""
 )  # path to SSL certificate file (leave empty to disable SSL)

@@ -42,7 +42,7 @@ class SQLiteUDPLogger:
         # Couldn't be in default params because datetime.now(timezone.utc) needs
         # to be called at init time and service_name is needed
         if db_filename == "":
-            db_filename = f"{datetime.now(timezone.utc).strftime('%Y-%m-d_%H-%M-%S')}-{self.service_name}-log.db"
+            db_filename = f"{datetime.now(timezone.utc).strftime('%Y-%m-%d_%H-%M-%S')}-{self.service_name}-log.db"
 
         # Always create in logs subdirectory
         current_dir = Path(__file__).parent.absolute()
@@ -68,13 +68,12 @@ class SQLiteUDPLogger:
         self.stats = {"sent": 0, "failed": 0, "pending": 0}
 
     def _init_database(self):
-        """Initialize SQLite database with proper schema"""
+        """
+        Initialize SQLite database with proper schema.
+        """
 
         with self._get_connection() as conn:
-
-            # Main logs table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
@@ -82,61 +81,44 @@ class SQLiteUDPLogger:
                     level TEXT NOT NULL,
                     message TEXT NOT NULL,
                     tags TEXT,
-                    message_id TEXT,
-                    source TEXT,
-                    
-                    -- Delivery tracking
                     sent INTEGER DEFAULT 0,
-                    sent_at TEXT,
                     attempts INTEGER DEFAULT 0,
-                    last_attempt TEXT,
-                    error_message TEXT,
-                    
-                    -- For batching/prioritization
-                    priority INTEGER DEFAULT 0, -- 0=normal, 1=high, 2=critical
-                    
-                    -- Indexes for performance
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    last_attempt TEXT
                 )
-            """
-            )
-
-            # Ensure "source" column exists on older databases
-            cursor = conn.execute("PRAGMA table_info(logs)")
-            columns = [row[1] for row in cursor.fetchall()]
-            if "source" not in columns:
-                conn.execute("ALTER TABLE logs ADD COLUMN source TEXT")
+                """)
 
             # Create indexes for efficient querying of unsent logs and stats
             conn.execute("CREATE INDEX IF NOT EXISTS idx_logs_sent ON logs(sent)")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_logs_priority ON logs(priority, sent)"
-            )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp)"
             )
 
             # Statistics table
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS log_stats (
                     date TEXT PRIMARY KEY,
                     total INTEGER DEFAULT 0,
                     sent INTEGER DEFAULT 0,
                     failed INTEGER DEFAULT 0
                 )
-            """
-            )
+            """)
 
     @property
     def _connection(self):
-        """Thread-safe SQLite connection"""
+        """
+        Thread-safe SQLite connection
+        """
+
         # SQLite handles thread safety with check_same_thread=False
         return sqlite3.connect(self.db_path, check_same_thread=False)
 
     @contextlib_contextmanager
     def _get_connection(self):
-        """Context manager for database connection"""
+        """
+        Context manager for database connection.
+        Ensures proper commit and close.
+        """
+
         conn = self._connection
         try:
             yield conn
@@ -145,11 +127,17 @@ class SQLiteUDPLogger:
             conn.close()
 
     def _get_current_utc_time(self) -> datetime:
-        """Get current UTC time as datetime object"""
+        """
+        Get current UTC time as datetime object.
+        """
+
         return datetime.now(timezone.utc)
 
     def _format_datetime_utc(self, dt: datetime) -> str:
-        """Format datetime as UTC string without timezone (YYYY-MM-DD HH:MM:SS)"""
+        """
+        Format datetime as UTC string without timezone (YYYY-MM-DD HH:MM:SS).
+        """
+
         return dt.strftime("%Y-%m-%d %H:%M:%S")
 
     def log(
@@ -158,7 +146,6 @@ class SQLiteUDPLogger:
         level: str = "INFO",
         sd_tags: Optional[Dict[str, Any]] = None,
         message_id: Optional[str] = None,
-        priority: int = 0,
         source: Optional[str] = None,
     ) -> int | None:
         """
@@ -167,7 +154,6 @@ class SQLiteUDPLogger:
         level: log level (e.g., INFO, ERROR)
         sd_tags: optional dictionary of that will form part of the structured data
         source: optional source identifier (e.g., module name)
-        priority: integer priority (0=normal, 1=high, 2=critical)
 
         N.B: The service identifier is added by the logging interface itself (so no need to pass the value in the tags).
 
@@ -184,24 +170,21 @@ class SQLiteUDPLogger:
             "message_id": message_id,
             "tags": json_dumps(sd_tags) if sd_tags else None,
             "source": source,
-            "priority": priority,
         }
 
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO logs 
-                (timestamp, service, level, message, tags, source, priority)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
+                (timestamp, service, level, message, tags)
+                VALUES (?, ?, ?, ?, ?)
+                """,
                 (
                     log_entry["timestamp"],
                     log_entry["service"],
                     log_entry["level"],
                     log_entry["message"],
                     log_entry["tags"],
-                    log_entry["source"],
-                    log_entry["priority"],
                 ),
             )
 
@@ -215,7 +198,7 @@ class SQLiteUDPLogger:
             conn.execute(
                 """
                 INSERT OR IGNORE INTO log_stats (date) VALUES (?)
-            """,
+                """,
                 (today,),
             )
             conn.execute(
@@ -223,7 +206,7 @@ class SQLiteUDPLogger:
                 UPDATE log_stats 
                 SET total = total + 1 
                 WHERE date = ?
-            """,
+                """,
                 (today,),
             )
 
@@ -240,15 +223,27 @@ class SQLiteUDPLogger:
         Returns a list of log tuples
         """
         with self._get_connection() as conn:
+
+            # Get unsent logs ordered by priority (CRITICAL > ERROR > WARNING > INFO) and then by timestamp (oldest first).
+            # New logs (attempts = 0) are retried immediately.
+            # Already-failed logs respect a 5-minute cooldown before retrying.
+
             cursor = conn.execute(
                 """
                 SELECT id, timestamp, level, message, tags, attempts
                 FROM logs 
                 WHERE sent = 0 
-                AND (attempts < ? OR last_attempt < ?)
-                ORDER BY priority DESC, timestamp ASC
+                AND attempts < ?
+                AND (attempts = 0 OR last_attempt < ?)
+                ORDER BY CASE UPPER(level)
+                    WHEN 'CRITICAL' THEN 3
+                    WHEN 'ERROR' THEN 2
+                    WHEN 'WARNING' THEN 1
+                    ELSE 0
+                END DESC,
+                timestamp ASC
                 LIMIT ?
-            """,
+                """,
                 (
                     self.max_retries,
                     self._format_datetime_utc(
@@ -257,6 +252,7 @@ class SQLiteUDPLogger:
                     batch_size,
                 ),
             )
+
             return cursor.fetchall()
 
     def _send_to_syslog(
@@ -267,7 +263,13 @@ class SQLiteUDPLogger:
         message: str,
         tags_str: Optional[str],
     ) -> bool:
-        """Send a single log to syslog via UDP"""
+        """
+        Send a single log to syslog via UDP.
+        Returns True if sent successfully, False otherwise.
+        Updates the log entry in SQLite with the result.
+        Handles retries and error recording.
+        """
+
         try:
             # Parse tags
             tags: dict[str, Any] = json_loads(tags_str) if tags_str else {}
@@ -290,23 +292,15 @@ class SQLiteUDPLogger:
                 json_data.encode("utf-8"), (self.syslog_host, self.syslog_port)
             )
 
-            # Mark as sent
+            # Remove the log once the log server has received it successfully.
             current_utc = self._get_current_utc_time()
             with self._get_connection() as conn:
                 conn.execute(
                     """
-                    UPDATE logs 
-                    SET sent = 1, 
-                        sent_at = ?,
-                        attempts = attempts + 1,
-                        last_attempt = ?
+                    DELETE FROM logs
                     WHERE id = ?
-                """,
-                    (
-                        self._format_datetime_utc(current_utc),
-                        self._format_datetime_utc(current_utc),
-                        log_id,
-                    ),
+                    """,
+                    (log_id,),
                 )
 
                 # Update stats
@@ -316,7 +310,7 @@ class SQLiteUDPLogger:
                     UPDATE log_stats 
                     SET sent = sent + 1 
                     WHERE date = ?
-                """,
+                    """,
                     (today,),
                 )
 
@@ -331,13 +325,11 @@ class SQLiteUDPLogger:
                     """
                     UPDATE logs 
                     SET attempts = attempts + 1,
-                        last_attempt = ?,
-                        error_message = ?
+                        last_attempt = ?
                     WHERE id = ?
-                """,
+                    """,
                     (
                         self._format_datetime_utc(current_utc),
-                        str(ex)[:500],  # Truncate long errors
                         log_id,
                     ),
                 )
@@ -349,7 +341,7 @@ class SQLiteUDPLogger:
                     UPDATE log_stats 
                     SET failed = failed + 1 
                     WHERE date = ?
-                """,
+                    """,
                     (today,),
                 )
 
@@ -361,6 +353,7 @@ class SQLiteUDPLogger:
         """
         Background thread that sends unsent logs.
         """
+
         print(f"Log sender thread started for service {self.service_name}")
 
         while self.running:
@@ -398,7 +391,10 @@ class SQLiteUDPLogger:
                 time_sleep(30)  # Wait half a minute on error to avoid tight loops
 
     def start(self):
-        """Start the background sender thread"""
+        """
+        Start the background sender thread.
+        """
+
         self.running = True
         self.sender_thread.start()
         print(
@@ -407,7 +403,10 @@ class SQLiteUDPLogger:
         )
 
     def stop(self):
-        """Graceful shutdown"""
+        """
+        Graceful shutdown.
+        """
+
         print("Stopping logger...")
         self.running = False
         self.sender_thread.join(timeout=10)
@@ -415,48 +414,61 @@ class SQLiteUDPLogger:
         print("Logger stopped")
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get current statistics"""
+        """
+        Get current statistics.
+        """
+
         current_utc = self._get_current_utc_time()
         one_week_ago = self._format_datetime_utc(current_utc - timedelta(days=7))
 
         with self._get_connection() as conn:
-            # Get counts
+            # Get counts from the daily stats table because delivered rows are deleted.
             cursor = conn.execute(
                 """
                 SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN sent = 1 THEN 1 ELSE 0 END) as sent,
-                    SUM(CASE WHEN sent = 0 AND attempts >= ? THEN 1 ELSE 0 END) as failed_permanently,
-                    SUM(CASE WHEN sent = 0 AND attempts < ? THEN 1 ELSE 0 END) as pending
+                    COALESCE(SUM(total), 0) as total,
+                    COALESCE(SUM(sent), 0) as sent,
+                    COALESCE(SUM(failed), 0) as failed
+                FROM log_stats
+                WHERE date > ?
+                """,
+                (one_week_ago,),
+            )
+
+            row = cursor.fetchone()
+
+            # Get remaining logs that are still pending or permanently failing
+            cursor = conn.execute(
+                """
+                SELECT 
+                    SUM(CASE WHEN attempts >= ? THEN 1 ELSE 0 END) as failed_permanently,
+                    SUM(CASE WHEN attempts < ? THEN 1 ELSE 0 END) as pending
                 FROM logs
                 WHERE timestamp > ?
-            """,
+                """,
                 (
                     self.max_retries,
                     self.max_retries,
                     one_week_ago,
                 ),
             )
-
-            row = cursor.fetchone()
+            log_row = cursor.fetchone()
 
             # Get recent failures
-            cursor = conn.execute(
-                """
-                SELECT message, error_message, attempts, timestamp
+            cursor = conn.execute("""
+                SELECT message, attempts, timestamp, last_attempt
                 FROM logs
                 WHERE sent = 0 AND attempts > 0
                 ORDER BY last_attempt DESC
                 LIMIT 5
-            """
-            )
+                """)
             recent_failures = cursor.fetchall()
 
         return {
             "total": row[0] or 0,
             "sent": row[1] or 0,
-            "pending": row[3] or 0,
-            "permanently_failed": row[2] or 0,
+            "pending": log_row[1] or 0,
+            "permanently_failed": log_row[0] or 0,
             "recent_failures": recent_failures,
             "service": self.service_name,
             "syslog_target": f"{self.syslog_host}:{self.syslog_port}",
@@ -483,10 +495,14 @@ class SQLiteUDPLogger:
         since: Optional[datetime] = None,
         until: Optional[datetime] = None,
         level: Optional[str] = None,
-        source: Optional[str] = None,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        """Query logs with filters"""
+        """
+        Query logs with filters.
+        since: only logs with timestamp >= this datetime
+        until: only logs with timestamp <= this datetime
+        level: filter by log level (e.g., INFO, ERROR)
+        """
 
         query = "SELECT * FROM logs WHERE 1=1"
         params: list[str | int] = []
@@ -502,10 +518,6 @@ class SQLiteUDPLogger:
         if level:
             query += " AND level = ?"
             params.append(level)
-
-        if source:
-            query += " AND source = ?"
-            params.append(source)
 
         query += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
