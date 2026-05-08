@@ -248,7 +248,12 @@ class SQLiteUDPLogger:
         """Return aggregated stats across all database files (last 7 days)."""
 
         current_utc = self._get_current_utc_time()
-        one_week_ago = self._format_datetime_utc(current_utc - timedelta(days=7))
+        # For `log_stats` the `date` column stores YYYY-MM-DD strings, so
+        # compare against a date-only boundary to include rows from the
+        # last seven days (inclusive).
+        one_week_ago = current_utc - timedelta(days=7)
+        one_week_ago_datetime = self._format_datetime_utc(one_week_ago)
+        one_week_ago_date = one_week_ago.strftime("%Y-%m-%d")
 
         total = sent = failed = pending = permanently_failed = 0
         recent_failures: list[tuple[str, int, str, Optional[str]]] = []
@@ -261,9 +266,9 @@ class SQLiteUDPLogger:
                 cursor = conn.execute(
                     """
                     SELECT COALESCE(SUM(total), 0), COALESCE(SUM(sent), 0), COALESCE(SUM(failed), 0)
-                    FROM log_stats WHERE date > ?
+                    FROM log_stats WHERE date >= ?
                     """,
-                    (one_week_ago,),
+                    (one_week_ago_date,),
                 )
                 row = cursor.fetchone()
                 total += row[0] or 0
@@ -276,7 +281,7 @@ class SQLiteUDPLogger:
                            SUM(CASE WHEN attempts < ? THEN 1 ELSE 0 END)
                     FROM logs WHERE timestamp > ?
                     """,
-                    (self.max_retries, self.max_retries, one_week_ago),
+                    (self.max_retries, self.max_retries, one_week_ago_datetime),
                 )
                 log_row = cursor.fetchone()
                 permanently_failed += log_row[0] or 0
