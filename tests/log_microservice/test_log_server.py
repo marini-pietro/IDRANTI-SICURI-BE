@@ -4,6 +4,8 @@ Tests for log_server rate limiting and JSON message processing.
 
 import json
 import importlib
+import logging
+import re
 import sys
 import types
 
@@ -44,7 +46,7 @@ def test_process_message_parsing_and_logging(monkeypatch):
         Minimal logger double used to capture emitted log records.
         """
 
-        def log(self, log_type, message, origin):
+        def log(self, log_type, message, origin, include_timestamp=False):
             calls.append((log_type, message, origin))
 
         def close(self):
@@ -82,7 +84,7 @@ def test_process_message_invalid_json_logs_warning(monkeypatch):
         Minimal logger double used to capture emitted log records.
         """
 
-        def log(self, log_type, message, origin):
+        def log(self, log_type, message, origin, include_timestamp=False):
             calls.append((log_type, message, origin))
 
         def close(self):
@@ -95,3 +97,40 @@ def test_process_message_invalid_json_logs_warning(monkeypatch):
 
     assert len(calls) == 1
     assert calls[0][0] == "warning"
+
+
+def test_logger_does_not_prepend_own_timestamp(monkeypatch, tmp_path):
+    """
+    The log server formatter should not add a server-side timestamp prefix.
+    """
+
+    monkeypatch.setattr(log_server, "LOGGER_NAME", "test-log-server-logger")
+
+    log_file = tmp_path / "server.log"
+    test_logger = log_server.Logger(str(log_file), logging.INFO, logging.INFO)
+    test_logger.log("info", "payload message", "origin")
+    test_logger.close()
+
+    line = log_file.read_text(encoding="utf-8").strip()
+
+    assert line.startswith("INFO - [origin] payload message")
+    assert "," not in line.split(" - ", 1)[0]
+
+
+def test_logger_can_prepend_timestamp_for_server_events(monkeypatch, tmp_path):
+    """
+    Server-generated logs should keep a timestamp prefix.
+    """
+
+    monkeypatch.setattr(log_server, "LOGGER_NAME", "test-log-server-logger-ts")
+
+    log_file = tmp_path / "server-ts.log"
+    test_logger = log_server.Logger(str(log_file), logging.INFO, logging.INFO)
+    test_logger.log("info", "server event", "origin", include_timestamp=True)
+    test_logger.close()
+
+    line = log_file.read_text(encoding="utf-8").strip()
+    prefix, rest = line.split(" - ", 1)
+
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}", prefix)
+    assert rest == "INFO - [origin] server event"
