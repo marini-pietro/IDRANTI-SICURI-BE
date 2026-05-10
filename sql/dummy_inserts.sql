@@ -1,8 +1,4 @@
 -- =========================
--- Dummy data inserts
--- =========================
-
--- =========================
 -- Plain text passwords for reference:
 -- 'admin@comune.it': 'adminpass'
 -- 'user1@comune.it':'userpass1'
@@ -11,43 +7,68 @@
 -- 'viewer1@comune.it': 'vpass1'
 -- =========================
 
--- Utenti
-INSERT INTO utenti (email, comune, nome, cognome, password, ruolo) VALUES
-('admin@comune.it', 'Roma', 'Mario', 'Rossi', '_A5eStQhatA-Vom5xGebmg==:HV8FXpnHn-rTghqkre3xo7DiGgv-TqzVKN-3y-Y3Okw=', 'admin'),
-('user1@comune.it', 'Roma', 'Luigi', 'Bianchi', '8pNtVxfyAAI-CHLHFO_VRA==:OQ9BBJPtYB916jflt1I4aEPGlYu5aY2MhH3Za0jKLfo=', 'operator'),
-('user2@comune.it', 'Milano', 'Anna', 'Verdi', 'x7Rh8hi7kHL1NztkEbyo8g==:hX_FZIq15oct9AXF6EsOAb9Km6XbcCKX2TaVYh7r95c=', 'viewer'),
-('operator1@comune.it', 'Napoli', 'Giovanni', 'Neri', 'V34JhnknyfbQ12wpP8VF8A==:a2q2x2lCvWyboNHAxzIk25_0jP24qrrY0b96o58Zylw=', 'operator'),
-('viewer1@comune.it', 'Torino', 'Laura', 'Gialli', 'Nh-uHcQr6LxAWsI8GMs_VA==:mf11NcvEwRkL9FBmcb32NTPI4XrB9XZ-SQR2GHu5y6k=', 'viewer');
+-- Users
+INSERT INTO users (email, name, surname, password, role, must_change_password) VALUES
+('admin@comune.it', 'Mario', 'Rossi', '_A5eStQhatA-Vom5xGebmg==:HV8FXpnHn-rTghqkre3xo7DiGgv-TqzVKN-3y-Y3Okw=', 'amministratore', FALSE),
+('user1@comune.it', 'Luigi', 'Bianchi', '8pNtVxfyAAI-CHLHFO_VRA==:OQ9BBJPtYB916jflt1I4aEPGlYu5aY2MhH3Za0jKLfo=', 'ente', TRUE),
+('user2@comune.it', 'Anna', 'Verdi', 'x7Rh8hi7kHL1NztkEbyo8g==:hX_FZIq15oct9AXF6EsOAb9Km6XbcCKX2TaVYh7r95c=', 'ente', TRUE),
+('operator1@comune.it', 'Giovanni', 'Neri', 'V34JhnknyfbQ12wpP8VF8A==:a2q2x2lCvWyboNHAxzIk25_0jP24qrrY0b96o58Zylw=', 'operatore', TRUE),
+('viewer1@comune.it', 'Laura', 'Gialli', 'Nh-uHcQr6LxAWsI8GMs_VA==:mf11NcvEwRkL9FBmcb32NTPI4XrB9XZ-SQR2GHu5y6k=', 'visualizzatore', TRUE);
 
--- Operatori
-INSERT INTO operatori (CF, nome, cognome) VALUES
-('RSSMRA80A01H501U', 'Marco', 'Rossi'),
-('BNCLGU85B12F205X', 'Luca', 'Bianchi'),
-('VRDANN90C41F205Z', 'Anna', 'Verdi');
+-- entities
+INSERT INTO entities (denominazione, manager_email) VALUES
+('Comune di Roma', 'admin@comune.it'),
+('Comune di Milano', 'user2@comune.it'),
+('Comune di Napoli', 'operator1@comune.it');
 
--- Idranti
-INSERT INTO idranti (
-  stato, latitudine, longitudine, comune, via, area_geo, tipo, accessibilita, email_ins
+-- User associated to entities
+INSERT INTO user_entities (user_email, entity_id) VALUES
+('admin@comune.it', 1),
+('user1@comune.it', 1),
+('user2@comune.it', 2),
+('operator1@comune.it', 3);
+
+-- Hydrants
+INSERT INTO hydrants (
+  latitude,
+  longitude,
+  address,
+  status,
+  functioning,
+  positioning,
+  surface_type,
+  leaks,
+  has_sump,
+  accessible_firetruck,
+  maintenance_status,
+  entity_id
 ) VALUES
-('utilizzabile', 41.9028, 12.4964, 'Roma', 'Via Nazionale', 'Centro', 'a', 'fruibile da autobotte', 'admin@comune.it'),
-('non utilizzabile', 41.8902, 12.4922, 'Roma', 'Via dei Fori Imperiali', 'Centro Storico', 'b', 'strada stretta', 'user1@comune.it'),
-('tappi presenti', 45.4642, 9.1900, 'Milano', 'Corso Buenos Aires', 'Nord', 'a', 'privato ma accessibile', 'user2@comune.it');
+(41.902800, 12.496400, 'Via Nazionale, Roma', 'Nuovo', TRUE, 'Soprassuolo', 'Asfalto', FALSE, TRUE, TRUE, 'Buona', 1),
+(41.890200, 12.492200, 'Via dei Fori Imperiali, Roma', 'Discreto', FALSE, 'Sottosuolo', 'Altro', TRUE, FALSE, FALSE, 'Discreta', 1),
+(45.464200, 9.190000, 'Corso Buenos Aires, Milano', 'Pessimo', TRUE, 'Soprassuolo', 'Asfalto', FALSE, TRUE, TRUE, 'Assente', 2);
 
--- Controlli
-INSERT INTO controlli (data, tipo, esito, id_idrante) VALUES
-('2025-01-10', 'periodico', TRUE, 1),
-('2025-01-15', 'periodico', FALSE, 2),
-('2025-01-20', 'periodico', TRUE, 3);
+-- Connectors
+INSERT INTO connectors (hydrant_id, diameter, cap_missing, chain_missing) VALUES
+(1, 'UNI 45', FALSE, FALSE),
+(1, 'UNI 70', TRUE, FALSE),
+(2, 'UNI 45', FALSE, TRUE),
+(3, 'UNI 100', FALSE, FALSE);
 
--- Controllo_Operatore (relazione molti-a-molti)
-INSERT INTO controllo_operatore (id_controllo, CF) VALUES
-(1, 'RSSMRA80A01H501U'),
-(1, 'BNCLGU85B12F205X'),
-(2, 'BNCLGU85B12F205X'),
-(3, 'VRDANN90C41F205Z');
+-- Photos
+INSERT INTO photo (hydrant_id, path) VALUES
+(1, '/foto/idrante1_1.jpg'),
+(2, '/foto/idrante2_1.jpg'),
+(3, '/foto/idrante3_1.jpg');
 
--- Foto
-INSERT INTO foto (data, id_idrante, posizione) VALUES
-('2025-01-10', 1, '/foto/idrante1_1.jpg'),
-('2025-01-15', 2, '/foto/idrante2_1.jpg'),
-('2025-01-20', 3, '/foto/idrante3_1.jpg');
+-- Maintenance records
+INSERT INTO maintenance (
+  hydrant_id,
+  user_email,
+  maintenance_timestamp,
+  type_manutenzione,
+  outcome,
+  notes
+) VALUES
+(1, 'admin@comune.it', '2025-01-10 10:00:00', 'Controllo periodico di manutenzione ordinaria', TRUE, 'Tutto regolare'),
+(2, 'user1@comune.it', '2025-01-15 11:30:00', 'Manutenzione straordinaria', FALSE, 'Serve intervento urgente'),
+(3, 'operator1@comune.it', '2025-01-20 09:15:00', 'Controllo periodico di manutenzione ordinaria', TRUE, 'Ripristinato correttamente');
