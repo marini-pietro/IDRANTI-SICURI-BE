@@ -4,10 +4,10 @@ Tests for control blueprint OPTIONS metadata and schema validation behavior.
 
 import pytest
 from marshmallow import ValidationError
-from api_blueprints import control_bp
+from api_blueprints import maintenance_bp
 from api_blueprints import blueprints_utils as bu
 
-# This file contains unit tests for the Control Blueprint defined in control_bp.py
+# This file contains unit tests for the Control Blueprint defined in maintenance_bp.py
 
 
 def test_control_resource_options():
@@ -16,7 +16,7 @@ def test_control_resource_options():
     """
 
     # Ensure that the class responds correctly to OPTIONS requests
-    cls = control_bp.ControlResource
+    cls = maintenance_bp.MaintenanceResource
     resp = bu.handle_options_request(cls)
 
     # The response should have status 200 and include an Allow header with GET method
@@ -31,7 +31,7 @@ def test_control_post_resource_options():
     """
 
     # Ensure that the class responds correctly to OPTIONS requests
-    cls = control_bp.ControlPostResource
+    cls = maintenance_bp.MaintenancePostResource
     resp = bu.handle_options_request(cls)
 
     # The response should have status 200 and include an Allow header with POST method
@@ -41,15 +41,16 @@ def test_control_post_resource_options():
 
 def test_control_schema_rejects_invalid_date_format():
     """
-    Control schema should reject non-date values for the data field.
+    Control schema should reject non-datetime values for the data field.
     """
 
     payload = {
-        "tipo": "manutenzione",
-        "esito": True,
-        "data": "31-12-2026",
-        "id_idrante": 1,
+        "type": "Manutenzione straordinaria",
+        "outcome": True,
+        "maintenance_timestamp": "31-12-2026",
+        "user_email": "admin@comune.it",
+        "hydrant_id": 1,
     }
 
     with pytest.raises(ValidationError):
-        control_bp.control_schema.load(payload)
+        maintenance_bp.maintenance_schema.load(payload)

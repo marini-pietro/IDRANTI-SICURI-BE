@@ -50,6 +50,6 @@ def test_photo_schema_requires_positive_hydrant_id():
     Photo schema should reject non-positive hydrant IDs.
     """
 
-    payload = {"id_idrante": 0, "posizione": "foto/1.png", "data": "2026-01-31"}
+    payload = {"hydrant_id": 0, "file_path": "foto/1.png"}
     with pytest.raises(ValidationError):
         photo_bp.photo_schema.load(payload)

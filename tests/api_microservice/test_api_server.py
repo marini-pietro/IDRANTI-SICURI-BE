@@ -6,6 +6,7 @@ including input validation and rate limiting behavior.
 import pytest
 from api_server import is_input_safe, API_VERSION, STATUS_CODES
 import api_server
+from werkzeug.exceptions import RequestEntityTooLarge
 
 # This file contains unit tests for the functions and features defined in api_server.py
 
@@ -73,6 +74,27 @@ def test_health_check_endpoint(client):
 
     assert resp.status_code == STATUS_CODES["ok"]
     assert resp.get_json() == {"status": "ok"}
+
+
+def test_framework_request_size_limit_is_configured():
+    """The Flask app should enforce the same request size limit globally."""
+
+    assert (
+        api_server.main_api.config["MAX_CONTENT_LENGTH"]
+        == api_server.API_SERVER_MAX_JSON_SIZE
+    )
+
+
+def test_request_entity_too_large_handler_uses_existing_error_format():
+    """Framework-level 413 errors should reuse the project JSON error payload."""
+
+    with api_server.main_api.app_context():
+        body, status_code = api_server.handle_request_entity_too_large(
+            RequestEntityTooLarge()
+        )
+
+    assert status_code == STATUS_CODES["payload_too_large"]
+    assert body.get_json() == {"error": api_server.ERROR_MESSAGES["payload_too_large"]}
 
 
 def test_check_size_within_limit_nested_data():

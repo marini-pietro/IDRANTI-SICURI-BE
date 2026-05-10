@@ -49,18 +49,24 @@ def test_hydrant_schema_rejects_invalid_latitudine_type():
     """
 
     payload = {
-        "stato": "attivo",
-        "latitudine": "not-a-number",
-        "longitudine": 9.19,
-        "comune": "Milano",
-        "via": "Via Roma",
-        "area_geo": "Centro",
-        "tipo": "soprasuolo",
-        "accessibilita": "pubblica",
+        "latitude": 45.4642,
+        "longitude": 9.19,
+        "address": "Via Roma, Milano",
+        "status": "Nuovo",
+        "operational": True,
+        "positioning": "Soprassuolo",
+        "surface": "Asfalto",
+        "leaks": False,
+        "has_pit": True,
+        "truck_access": True,
+        "maintenance_status": "Buona",
+        "entity_id": 1,
     }
+
+    payload["latitude"] = "not-a-number"
 
     try:
         hydrant_bp.hydrant_schema.load(payload)
         assert False, "Expected schema validation to fail"
     except ValidationError as exc:
-        assert "latitudine" in exc.messages
+        assert "latitude" in exc.messages

@@ -103,7 +103,7 @@ def test_user_safe_string_rejects_dangerous_input(value):
 
 def test_user_login_handles_upstream_timeout(monkeypatch):
     """
-    UserLogin should return internal error if auth service is unavailable.
+    UserLogin should return service unavailable if auth service is unavailable.
     """
 
     monkeypatch.setattr(user_bp, "LOGIN_AVAILABLE_THROUGH_API", True)
@@ -117,5 +117,5 @@ def test_user_login_handles_upstream_timeout(monkeypatch):
     with main_api.test_request_context(json={"email": "u@x.com", "password": "p"}):
         resp = user_bp.UserLogin().post()
 
-    # The response should have status 500 Internal Server Error due to the simulated timeout
-    assert resp.status_code == bu.STATUS_CODES["internal_server_error"]
+    # The response should map upstream failures to 503 Service Unavailable.
+    assert resp.status_code == bu.STATUS_CODES["service_unavailable"]

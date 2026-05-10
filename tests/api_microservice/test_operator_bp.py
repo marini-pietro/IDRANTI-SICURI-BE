@@ -4,10 +4,10 @@ Tests for operator blueprint OPTIONS and input sanitization logic.
 
 import pytest
 from marshmallow import ValidationError
-from api_blueprints import operator_bp
+from api_blueprints import entity_bp
 from api_blueprints import blueprints_utils as bu
 
-# This file contains unit tests for the Operator Blueprint defined in operator_bp.py
+# This file contains unit tests for the Operator Blueprint defined in entity_bp.py
 
 
 def test_operator_resource_options_and_validation():
@@ -15,7 +15,7 @@ def test_operator_resource_options_and_validation():
     Operator resource should return OPTIONS response with GET allowed.
     """
 
-    cls = operator_bp.OperatorResource
+    cls = entity_bp.EntityResource
     resp = bu.handle_options_request(cls)
 
     # The response should have status 200 and include an Allow header with GET method
@@ -28,7 +28,7 @@ def test_operator_post_options():
     Operator POST resource should return OPTIONS response with POST allowed.
     """
 
-    cls = operator_bp.OperatorPostResource
+    cls = entity_bp.EntityPostResource
     resp = bu.handle_options_request(cls)
 
     # The response should have status 200 and include an Allow header with POST method
@@ -45,7 +45,7 @@ def test_operator_safe_string_rejects_dangerous_values(value):
     """
 
     with pytest.raises(ValidationError):
-        operator_bp.safe_string(value)
+        entity_bp.safe_string(value)
 
 
 def test_operator_safe_string_accepts_clean_value():
@@ -53,4 +53,4 @@ def test_operator_safe_string_accepts_clean_value():
     safe_string should accept normal alphabetic values.
     """
 
-    assert operator_bp.safe_string("Mario") == "Mario"
+    assert entity_bp.safe_string("Mario") == "Mario"
