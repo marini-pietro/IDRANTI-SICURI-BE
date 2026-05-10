@@ -326,7 +326,7 @@ def login():
         user.password, password
     ):  # If the user exists and password is correct
         identity = user.email  # Use email as identity
-        additional_claims = {"role": user.ruolo}  # Add user role as custom claim
+        additional_claims = {"role": user.role}  # Add user role as custom claim
 
         # Create access and refresh tokens
         access_token = create_access_token(
@@ -500,7 +500,7 @@ def clear_sent_logs():
 
         # Fetch user from database to check role
         user = User.query.filter_by(email=identity).first()
-        if not user or user.ruolo != "admin":
+        if not user or not user.is_admin:
             log(
                 message=f"Unauthorized log clear attempt by {identity} (not admin)",
                 level="WARNING",

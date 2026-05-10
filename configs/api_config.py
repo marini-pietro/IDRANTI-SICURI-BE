@@ -235,7 +235,7 @@ STATUS_CODES: Dict[str, int] = {
 }
 
 # Roles and their corresponding IDs
-ROLES: Set[str] = {"admin", "operator", "viewer"}
+ROLES: Set[str] = {"amministratore", "ente", "visualizzatore"}
 
 # Standard not authorized message
 NOT_AUTHORIZED_MESSAGE: Dict[str, str] = {
