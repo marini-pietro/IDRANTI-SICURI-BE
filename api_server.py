@@ -4,14 +4,10 @@ This server handles incoming requests and routes them to the appropriate bluepri
 Also provides a health check endpoint.
 """
 
-# Library imports
+# First party imports
 from typing import Union, List, Dict, Any, Tuple, Optional
 from datetime import datetime as datetime_obj
 from re import sub as re_sub
-from hashlib import sha256 as hashlib_sha256
-from hmac import new as hmac_new
-from unicodedata import normalize as unicodedata_normalize
-from unicodedata import category as unicodedata_category
 from sys import exit as sys_exit
 from os import listdir as os_listdir
 from os.path import join as os_path_join
@@ -19,16 +15,23 @@ from os.path import dirname as os_path_dirname
 from os.path import abspath as os_path_abspath
 from subprocess import run as subprocess_run
 from importlib import import_module
+from hashlib import sha256 as hashlib_sha256
+from hmac import new as hmac_new
+from unicodedata import normalize as unicodedata_normalize
+from unicodedata import category as unicodedata_category
+
+# Library imports
 from flask import Flask, jsonify, request, Blueprint
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager
 from flask_marshmallow import Marshmallow
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flasgger import Swagger
+from flask_restful import Api
 from sqlalchemy.exc import OperationalError
 
 # Local imports
-from api_blueprints.blueprints_utils import log_interface, log
+from api_blueprints.blueprints_utils import log_interface, log, jwt_validation_required
 from models import db
 from configs.api_config import (
     API_SERVER_HOST,
@@ -43,7 +46,7 @@ from configs.api_config import (
     JWT_QUERY_STRING_NAME,
     JWT_JSON_KEY,
     JWT_REFRESH_JSON_KEY,
-    JWT_TOKEN_LOCATION,
+    JWT_TOKEN_LOCATIONS,
     JWT_REFRESH_TOKEN_EXPIRES,
     JWT_ACCESS_TOKEN_EXPIRES,
     IS_API_SERVER_SSL,
@@ -64,11 +67,17 @@ from configs.api_config import (
 # Create a Flask app
 main_api = Flask(__name__)
 
+# Shared Flask-RESTful registry used by all blueprint modules to register resources.
+api = Api(prefix=URL_PREFIX)
+
+# Bind the shared RESTful registry to the Flask app so blueprint modules can import the same object.
+api.init_app(main_api)
+
 # Update configuration settings for the Flask app
 main_api.config.update(
     JWT_SECRET_KEY=JWT_SECRET_KEY,  # Same secret key as the auth microservice
     JWT_ALGORITHM=JWT_ALGORITHM,  # Same algorithm as the auth microservice
-    JWT_TOKEN_LOCATION=JWT_TOKEN_LOCATION,  # Where to look for tokens
+    JWT_TOKEN_LOCATIONS=JWT_TOKEN_LOCATIONS,  # Where to look for tokens
     JWT_QUERY_STRING_NAME=JWT_QUERY_STRING_NAME,  # Custom query string name
     JWT_JSON_KEY=JWT_JSON_KEY,  # Custom JSON key for access tokens
     JWT_REFRESH_JSON_KEY=JWT_REFRESH_JSON_KEY,  # Custom JSON key for refresh tokens
@@ -681,7 +690,6 @@ def custom_revoked_token_response(jwt_header, jwt_payload):
 
 
 # Endpoint to clear sent logs before a given timestamp
-@jwt_required()
 @main_api.route(f"/api/{API_VERSION}/logs/clear", methods=["POST"])
 @limiter.limit(lambda: get_rate_limit("strict"))
 def clear_sent_logs():
@@ -720,32 +728,6 @@ def clear_sent_logs():
             description: Invalid or missing timestamp
     """
     try:
-        # Extract and validate admin authorization
-        try:
-            identity = get_jwt_identity()
-        except RuntimeError:
-            # JWT not present or invalid; return standardized missing token response
-            return (
-                jsonify(INVALID_JWT_MESSAGES["missing_token"][0]),
-                INVALID_JWT_MESSAGES["missing_token"][1],
-            )
-
-        # Fetch user from database to check role
-        from models import User
-
-        user = User.query.filter_by(email=identity).first()
-        if not user or user.ruolo != "admin":
-            log(
-                message=f"Unauthorized log clear attempt by {identity} (not admin)",
-                level="WARNING",
-                message_id="CLRLOGSUNAUTH",
-                sd_tags={"endpoint": request.path, "identity": identity},
-            )
-            return (
-                jsonify({"error": "Only admins can clear logs"}),
-                STATUS_CODES["forbidden"],
-            )
-
         # Parse JSON body and extract timestamp
         data = request.get_json(force=True)
         timestamp_str: str = data.get("timestamp")

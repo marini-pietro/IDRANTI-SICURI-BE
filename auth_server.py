@@ -42,7 +42,7 @@ from configs.auth_config import (
     JWT_QUERY_STRING_NAME,
     JWT_JSON_KEY,
     JWT_REFRESH_JSON_KEY,
-    JWT_TOKEN_LOCATION,
+    JWT_TOKEN_LOCATIONS,
     JWT_ACCESS_TOKEN_EXPIRES,
     STATUS_CODES,
     JWT_REFRESH_TOKEN_EXPIRES,
@@ -67,7 +67,7 @@ auth_api = Flask(__name__)
 auth_api.config.update(
     JWT_SECRET_KEY=JWT_SECRET_KEY,  # Same secret key as the auth microservice
     JWT_ALGORITHM=JWT_ALGORITHM,  # Same algorithm as the auth microservice
-    JWT_TOKEN_LOCATION=JWT_TOKEN_LOCATION,  # Where to look for tokens
+    JWT_TOKEN_LOCATIONS=JWT_TOKEN_LOCATIONS,  # Where to look for tokens
     JWT_QUERY_STRING_NAME=JWT_QUERY_STRING_NAME,  # Custom query string name
     JWT_JSON_KEY=JWT_JSON_KEY,  # Custom JSON key for access tokens
     JWT_REFRESH_JSON_KEY=JWT_REFRESH_JSON_KEY,  # Custom JSON key for refresh tokens

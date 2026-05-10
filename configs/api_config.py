@@ -128,9 +128,6 @@ JWT_SECRET_KEY: str = os_environ.get(
 JWT_ALGORITHM: str = os_environ.get(
     "JWT_ALGORITHM", "HS256"
 )  # algorithm used for signing JWTs
-JWT_QUERY_STRING_NAME = os_environ.get(
-    "JWT_QUERY_STRING_NAME", "jwt_token"
-)  # name of the query string parameter to look for JWTs
 # (if JWTs are sent via query string, not recommended for production)
 JWT_JSON_KEY = os_environ.get(
     "JWT_JSON_KEY", "jwt_token"
@@ -138,12 +135,12 @@ JWT_JSON_KEY = os_environ.get(
 JWT_REFRESH_JSON_KEY = os_environ.get(
     "JWT_REFRESH_JSON_KEY", "jwt_refresh_token"
 )  # name of the JSON key to look for refresh JWTs (if refresh JWTs are sent via JSON body)
-JWT_TOKEN_LOCATION = os_environ.get(
-    "JWT_TOKEN_LOCATION",
-    "headers,query_string,json",  # values must be strictly separated by commas with no spaces
+JWT_TOKEN_LOCATIONS = os_environ.get(
+    "JWT_TOKEN_LOCATIONS",
+    "headers,json",  # values must be strictly separated by commas with no spaces
 ).split(
     ","
-)  # locations to look for JWTs
+)  # locations to look for JWTs (allowed values: headers, query_string, json) (query string is not recommended for production)
 JWT_REFRESH_TOKEN_EXPIRES = timedelta(
     days=int(os_environ.get("JWT_REFRESH_TOKEN_EXPIRES_DAYS", 10))
 )  # refresh token expiration time

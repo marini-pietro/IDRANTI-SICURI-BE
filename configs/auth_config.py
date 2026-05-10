@@ -80,12 +80,12 @@ JWT_JSON_KEY = os_environ.get(
 JWT_REFRESH_JSON_KEY = os_environ.get(
     "JWT_REFRESH_JSON_KEY", "jwt_refresh_token"
 )  # name of the JSON key for refresh JWTs
-JWT_TOKEN_LOCATION = os_environ.get(
-    "JWT_TOKEN_LOCATION",
+JWT_TOKEN_LOCATIONS = os_environ.get(
+    "JWT_TOKEN_LOCATIONS",
     "headers,query_string,json",  # values must be strictly separated by commas with no spaces
 ).split(
     ","
-)  # locations to look for JWTs
+)  # locations to look for JWTs (allowed values: headers, query_string, json) (using query_string is not recommended for production)
 JWT_REFRESH_TOKEN_EXPIRES = timedelta(
     days=int(os_environ.get("JWT_REFRESH_TOKEN_EXPIRES_DAYS", 10))
 )  # refresh token expiration time

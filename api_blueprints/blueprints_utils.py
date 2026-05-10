@@ -24,6 +24,7 @@ from configs.api_config import (
     AUTH_SERVER_PORT,
     AUTH_API_VERSION,
     IS_AUTH_SERVER_SSL,
+    JWT_TOKEN_LOCATIONS,
     JWT_JSON_KEY,
     JWT_QUERY_STRING_NAME,
     JWT_VALIDATION_CACHE_SIZE,
@@ -78,23 +79,42 @@ def jwt_validation_required(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # Extract the token from the Authorization header
-        token = None
-        auth_header = request.headers.get("Authorization", None)
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.replace("Bearer ", "", 1)
 
-        # If the token is not in the Authorization header, check the query string
-        if not token:
-            token = request.args.get(JWT_QUERY_STRING_NAME, None)
+        for location in JWT_TOKEN_LOCATIONS:
+            if location not in ["headers", "json", "query_string"]:
+                raise ValueError(
+                    f"Invalid JWT token location: {location}. "
+                    f"Allowed locations are 'headers', 'query_string', and 'json'."
+                )
 
-        # If the token is not in the query string, check the JSON body
-        if not token:
-            json_body = request.get_json(silent=True)  # Safely get JSON body
-            if json_body:  # Ensure it's not None
-                token = json_body.get(JWT_JSON_KEY, None)
+            if location == "headers":
+                # Extract the token from the Authorization header
+                token = None
+                auth_header = request.headers.get("Authorization", None)
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.replace("Bearer ", "", 1)
 
-        # Validate the token
+                if token: # Token found in headers, no need to check other locations
+                    break
+
+            elif location == "json":
+                # If the token is not in the Authorization header, check the JSON body
+                json_body = request.get_json(silent=True)  # Safely get JSON body
+                if json_body:  # Ensure it's not None
+                    token = json_body.get(JWT_JSON_KEY, None)
+
+                if token: # Token found in JSON body, no need to check other locations
+                    break
+            
+            elif location == "query_string":
+                # If the token is not in the JSON body, check the query string
+                token = request.args.get(JWT_QUERY_STRING_NAME, None)
+
+                if token: # Token found in query string
+                    break
+
+
+        # Check that a token was found in at least one of the specified locations
         if not token:
             return {"error": "missing token"}, STATUS_CODES["unauthorized"]
 
@@ -105,11 +125,10 @@ def jwt_validation_required(func):
         # Check if the token is already validated in the cache
         if token in token_validation_cache:
             identity, role = token_validation_cache[token]
-        else:
-            # Contact the authentication microservice to validate the token
+        else: # Token not in cache, validate it with the authentication server
             try:
                 # Send a request to the authentication server to validate the token
-                # Proper json body and headers are not needed
+                # Proper json body and headers are not needed, just the Authorization header with the token is sufficient for validation
                 scheme = "https" if IS_AUTH_SERVER_SSL else "http"
                 auth_validate_url = f"{scheme}://{AUTH_SERVER_HOST}:{AUTH_SERVER_PORT}/auth/{AUTH_API_VERSION}/validate"
                 response: Response = requests_post(
@@ -121,7 +140,7 @@ def jwt_validation_required(func):
                 # If the token is invalid, return a 401 Unauthorized response
                 if response.status_code != STATUS_CODES["ok"]:
                     return {"error": "Invalid token"}, STATUS_CODES["unauthorized"]
-                else:
+                else: # If the token is valid, extract the identity and role from the response
                     response_json = response.json()
                     identity = response_json.get("identity")
                     role = response_json.get("role")
@@ -129,6 +148,8 @@ def jwt_validation_required(func):
                 # Cache the result if the token is valid
                 token_validation_cache[token] = identity, role
 
+            # If the request to the authentication server times out,
+            # return a 504 Gateway Timeout response
             except Timeout:
                 log(
                     message="Request timed out while validating token",
@@ -141,6 +162,8 @@ def jwt_validation_required(func):
                     STATUS_CODES["gateway_timeout"],
                 )
 
+            # If there is any other error while validating the token, 
+            # return a 500 Internal Server Error response
             except RequestException as ex:
                 log(
                     message=f"Error validating token: {ex}",
@@ -158,9 +181,12 @@ def jwt_validation_required(func):
         if "identity" in inspect_signature(func).parameters:
             kwargs["identity"] = identity
 
-        kwargs["role"] = role  # Add role to kwargs for the next wrapper
+        kwargs["role"] = role  # Add role to kwargs for the next wrapper (role checking)
+
+        # Call the wrapped function with the original arguments and the extracted identity and role
         return func(*args, **kwargs)
 
+    # Return the wrapper function that performs JWT validation before calling the original function
     return wrapper
 
 
