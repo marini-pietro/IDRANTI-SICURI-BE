@@ -22,6 +22,7 @@ from flask_jwt_extended import (
 )
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.exceptions import RequestEntityTooLarge
 
 # Local imports
 from logging_interface import create_interface
@@ -49,6 +50,7 @@ from configs.auth_config import (
     SQL_PATTERN,
     SQLALCHEMY_DATABASE_URI,
     SQLALCHEMY_TRACK_MODIFICATIONS,
+    AUTH_SERVER_MAX_JSON_SIZE,
     RATE_LIMIT_TIERS,
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
@@ -75,6 +77,7 @@ auth_api.config.update(
     JWT_ACCESS_TOKEN_EXPIRES=JWT_ACCESS_TOKEN_EXPIRES,  # Access token valid duration
     SQLALCHEMY_DATABASE_URI=SQLALCHEMY_DATABASE_URI,  # Database connection URI
     SQLALCHEMY_TRACK_MODIFICATIONS=SQLALCHEMY_TRACK_MODIFICATIONS,  # Disable track modifications
+    MAX_CONTENT_LENGTH=AUTH_SERVER_MAX_JSON_SIZE,  # Framework-wide cap for incoming request bodies
 )
 
 # Initialize database (ORM abstraction layer)
@@ -82,6 +85,16 @@ db.init_app(auth_api)
 
 # Initialize JWT manager
 jwt = JWTManager(auth_api)
+
+
+@auth_api.errorhandler(RequestEntityTooLarge)
+def handle_request_entity_too_large(_error: RequestEntityTooLarge):
+    """Return a consistent JSON response for oversized request bodies."""
+
+    return (
+        jsonify({"error": "Request body or field too large"}),
+        STATUS_CODES.get("payload_too_large", 413),
+    )
 
 
 # Helper function to get rate limit string for a specific tier

@@ -70,6 +70,7 @@ token_validation_cache: TTLCache[str, tuple[str | None, str | None]] = TTLCache(
 )
 
 
+# Decorator for remote JWT validation with support for multiple token locations and caching of validation results
 def jwt_validation_required(func):
     """
     Decorator to validate the JWT token before executing the endpoint function.
@@ -94,25 +95,28 @@ def jwt_validation_required(func):
                 if auth_header and auth_header.startswith("Bearer "):
                     token = auth_header.replace("Bearer ", "", 1)
 
-                if token: # Token found in headers, no need to check other locations
+                if token:  # Token found in headers, no need to check other locations
                     break
 
             elif location == "json":
                 # If the token is not in the Authorization header, check the JSON body
-                json_body = request.get_json(silent=True)  # Safely get JSON body
-                if json_body:  # Ensure it's not None
+                json_body = request.get_json(
+                    silent=True
+                )  # silent=True to avoid raising an error
+                # (invalid JSON will be treated as None and properly handled by the following checks)
+
+                if json_body is not None:
                     token = json_body.get(JWT_JSON_KEY, None)
 
-                if token: # Token found in JSON body, no need to check other locations
+                if token:  # Token found in JSON body, no need to check other locations
                     break
-            
+
             elif location == "query_string":
                 # If the token is not in the JSON body, check the query string
                 token = request.args.get(JWT_QUERY_STRING_NAME, None)
 
-                if token: # Token found in query string
+                if token:  # Token found in query string
                     break
-
 
         # Check that a token was found in at least one of the specified locations
         if not token:
@@ -125,7 +129,7 @@ def jwt_validation_required(func):
         # Check if the token is already validated in the cache
         if token in token_validation_cache:
             identity, role = token_validation_cache[token]
-        else: # Token not in cache, validate it with the authentication server
+        else:  # Token not in cache, validate it with the authentication server
             try:
                 # Send a request to the authentication server to validate the token
                 # Proper json body and headers are not needed, just the Authorization header with the token is sufficient for validation
@@ -140,7 +144,7 @@ def jwt_validation_required(func):
                 # If the token is invalid, return a 401 Unauthorized response
                 if response.status_code != STATUS_CODES["ok"]:
                     return {"error": "Invalid token"}, STATUS_CODES["unauthorized"]
-                else: # If the token is valid, extract the identity and role from the response
+                else:  # If the token is valid, extract the identity and role from the response
                     response_json = response.json()
                     identity = response_json.get("identity")
                     role = response_json.get("role")
@@ -162,7 +166,7 @@ def jwt_validation_required(func):
                     STATUS_CODES["gateway_timeout"],
                 )
 
-            # If there is any other error while validating the token, 
+            # If there is any other error while validating the token,
             # return a 500 Internal Server Error response
             except RequestException as ex:
                 log(
@@ -231,6 +235,36 @@ def check_authorization(allowed_roles: List[str]):
         return wrapper
 
     return decorator
+
+
+# Validation related
+def safe_string(value: str):
+    """
+    Validate that the input is a string and does not contain potentially harmful characters.
+        - Checks if the value is a string.
+        - Ensures that it does not contain '<' or '>'.
+        - Uses a regex to check for 'javascript:' or control characters.
+
+    Args:
+        value (str): The string to validate.
+
+    Raises:
+        ValidationError: If the value is not a string or contains invalid characters.
+
+    Returns:
+        str: The validated string if it passes all checks.
+    """
+
+    if not isinstance(value, str):
+        raise ValidationError("Must be a string.")
+    if (
+        "<" in value
+        or ">" in value
+        or re_search(r"javascript:|[\x00-\x1F\x7F]", value, re_IGNORECASE)
+    ):
+        raise ValidationError("Invalid characters in string.")
+
+    return value
 
 
 # Response related

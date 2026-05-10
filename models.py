@@ -7,6 +7,7 @@ from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import CITEXT, ENUM
+
 # CITEXT is a case-insensitive text type, useful for email fields and similar use cases where case should not affect uniqueness or comparisons.
 from sqlalchemy.orm import object_session
 
@@ -16,7 +17,7 @@ db = SQLAlchemy()
 
 # Define ENUM types for relevant columns
 hydrant_status_enum = ENUM(
-    "Nuovo", "Buono","Discreto", "Pessimo", "Sconosciuto", name="stato_idrante_enum"
+    "Nuovo", "Buono", "Discreto", "Pessimo", "Sconosciuto", name="stato_idrante_enum"
 )
 surface_enum = ENUM(
     "Asfalto", "Erba", "Terra base pietra", "Altro", name="superficie_enum"

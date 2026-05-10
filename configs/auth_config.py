@@ -53,6 +53,9 @@ AUTH_SERVER_SSL_KEY: str = os_environ.get(
 AUTH_SERVER_SSL: bool = not (
     AUTH_SERVER_SSL_CERT == "" and AUTH_SERVER_SSL_KEY == ""
 )  # Whether the authentication server uses SSL/TLS or not
+AUTH_SERVER_MAX_JSON_SIZE = int(
+    os_environ.get("AUTH_SERVER_MAX_JSON_SIZE", 51220)
+)  # max size (in bytes) of incoming JSON payloads
 
 # PBKDF2 HMAC settings for password hashing (have to match those in api_config.py)
 PBKDF2HMAC_SETTINGS: Dict[str, int | hashes.HashAlgorithm] = {
@@ -72,11 +75,9 @@ JWT_ALGORITHM: str = os_environ.get(
     "JWT_ALGORITHM", "HS256"
 )  # algorithm used for signing JWTs
 JWT_QUERY_STRING_NAME = os_environ.get(
-    "JWT_QUERY_STRING_NAME", "jwt_token"
+    "JWT_QUERY_STRING_NAME", "jwt"
 )  # name of the query string parameter for JWTs
-JWT_JSON_KEY = os_environ.get(
-    "JWT_JSON_KEY", "jwt_token"
-)  # name of the JSON key for JWTs
+JWT_JSON_KEY = os_environ.get("JWT_JSON_KEY", "jwt")  # name of the JSON key for JWTs
 JWT_REFRESH_JSON_KEY = os_environ.get(
     "JWT_REFRESH_JSON_KEY", "jwt_refresh_token"
 )  # name of the JSON key for refresh JWTs
@@ -188,6 +189,7 @@ STATUS_CODES: Dict[str, int] = {
     "forbidden": 403,
     "conflict": 409,
     "precondition_failed": 412,
+    "payload_too_large": 413,
     "unprocessable_entity": 422,
     "too_many_requests": 429,
     "gateway_timeout": 504,

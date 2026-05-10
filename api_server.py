@@ -29,6 +29,7 @@ from flask_limiter.util import get_remote_address
 from flasgger import Swagger
 from flask_restful import Api
 from sqlalchemy.exc import OperationalError
+from werkzeug.exceptions import RequestEntityTooLarge
 
 # Local imports
 from api_blueprints.blueprints_utils import log_interface, log, jwt_validation_required
@@ -85,6 +86,7 @@ main_api.config.update(
     JWT_ACCESS_TOKEN_EXPIRES=JWT_ACCESS_TOKEN_EXPIRES,  # Access token valid duration
     SQLALCHEMY_DATABASE_URI=SQLALCHEMY_DATABASE_URI,  # Database connection URI
     SQLALCHEMY_TRACK_MODIFICATIONS=SQLALCHEMY_TRACK_MODIFICATIONS,  # Disable track modifications
+    MAX_CONTENT_LENGTH=API_SERVER_MAX_JSON_SIZE,  # Framework-wide cap for incoming request bodies
 )
 
 # Swagger template with hardcoded auth endpoints
@@ -276,6 +278,16 @@ ERROR_MESSAGES = {
     "sql_injection_path": "Invalid path variable: {key} suspected SQL injection",
     "payload_too_large": "Request body or field too large",
 }
+
+
+@main_api.errorhandler(RequestEntityTooLarge)
+def handle_request_entity_too_large(_error: RequestEntityTooLarge):
+    """Return the same JSON error format used by the manual payload size checks."""
+
+    return (
+        jsonify({"error": ERROR_MESSAGES["payload_too_large"]}),
+        STATUS_CODES.get("payload_too_large", 413),
+    )
 
 
 # Helper functions for pre-request checks

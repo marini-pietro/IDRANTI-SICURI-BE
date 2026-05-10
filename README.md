@@ -153,14 +153,20 @@ Highlights below reference the code and the config values in `*_config.py` files
 	- To avoid ReDos a maximum length for a scannable string and maximum recursion depth (for scanning complex data types that may contain other contain complex data types and so on) are defined (configurable via `.env` file).
 
 - Rate limiting
-	- Implemented with a in-memory TTL (Time to live) cache utility for each service.  
-	For globally shared limits, replace this with a shared solution (e.g. Redis).
+	- Implemented using the Flask-Limiter library with an in-memory `TTLCache` backend for simplicity. The limits are easily configurable via `RATE_LIMIT_TIERS` setting in the `.env` file.  
+	Applying of modifying rate limit tiers is as simple as modifying the decorator `@limiter.limit(lambda: get_rate_limit("<tier_name>"))` of a given endpoint.  
+	- Each microservice handles its own data for rate limiting.  
+	For globally shared limits and data, replace this with a shared solution (e.g. Redis).
 	- Related settings are configurable in the `*config.py` files (through `.env`).
-	- The log server also enforces its own `TTLCache` limit and, when `RETAIN_LOGS_RATE_LIMIT_TRIGGER`is set to true, pushes rate-limited messages into a bounded delayed queue (`DELAYED_LOGS_QUEUE_SIZE`) instead of dropping them immediately.
+	- The log server enforces its own approach (Flask-Limiter is not available since log server is not a Flask application) using a `TTLCache` and custom logic and, when `RETAIN_LOGS_RATE_LIMIT_TRIGGER`is set to true, pushes rate-limited messages into a bounded delayed queue (size configurable via `DELAYED_LOGS_QUEUE_SIZE`) instead of dropping them immediately.
 
 - Logging and monitoring
 	- Centralized logging is handled by `log_server.py`; each service sends logs through `logging_interface.py`, which buffers logs in SQLite and forwards them asynchronously via UDP.
 	- Structured logs include service name, hostname, level, message text, optional message id, and optional structured tags.
+
+- Overposting/mass assignment protection
+	- Marshmallow schemas in blueprints are configured with `unknown = RAISE`, which rejects any input fields that are not explicitly defined in the schema. This prevents clients from setting fields they shouldn't be able to (e.g., auto-generated IDs, internal flags).  
+	`unknown = EXCLUDE` could be used instead to silently ignore extra fields, but `RAISE` is preferable to reduce overhead as with `unknown = EXCLUDE` building a cleaned result could be more resource-intensive (in most circumstances the difference is negligible but with specifically crafted payloads it could be an issue, though such payloads would be most likely caught by the request-size limits and/or depth limits).
 
 - Transport security (TLS)
 	- `api_server.py` and `auth_server.py` support SSL if certificate and key paths are provided in `*_config.py` files (`*_SSL_CERT`, `*_SSL_KEY`, and `*_SSL` flags).

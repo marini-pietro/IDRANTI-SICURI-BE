@@ -83,7 +83,7 @@ API_SERVER_DEBUG_MODE: bool = (
 # Whether the API server should enable rate limiting. Tests may toggle this flag.
 API_SERVER_RATE_LIMIT: bool = os_environ.get("API_SERVER_RATE_LIMIT", "True") == "True"
 API_SERVER_MAX_JSON_SIZE = int(
-    os_environ.get("API_SERVER_MAX_JSON_SIZE", 50 * 10244)
+    os_environ.get("API_SERVER_MAX_JSON_SIZE", 51220)  # 50 KB default
 )  # max size (in bytes) of incoming JSON payloads
 SQL_SCAN_MAX_LEN = int(
     os_environ.get("SQL_SCAN_MAX_LEN", 2048)
@@ -128,9 +128,11 @@ JWT_SECRET_KEY: str = os_environ.get(
 JWT_ALGORITHM: str = os_environ.get(
     "JWT_ALGORITHM", "HS256"
 )  # algorithm used for signing JWTs
-# (if JWTs are sent via query string, not recommended for production)
+JWT_QUERY_STRING_NAME = os_environ.get(
+    "JWT_QUERY_STRING_NAME", "jwt"
+)  # name of the query string parameter for JWTs
 JWT_JSON_KEY = os_environ.get(
-    "JWT_JSON_KEY", "jwt_token"
+    "JWT_JSON_KEY", "jwt"
 )  # name of the JSON key to look for JWTs (if JWTs are sent via JSON body)
 JWT_REFRESH_JSON_KEY = os_environ.get(
     "JWT_REFRESH_JSON_KEY", "jwt_refresh_token"
@@ -220,6 +222,7 @@ STATUS_CODES: Dict[str, int] = {
     "forbidden": 403,
     "conflict": 409,
     "precondition_failed": 412,
+    "payload_too_large": 413,
     "unprocessable_entity": 422,
     "too_many_requests": 429,
     "gateway_timeout": 504,
