@@ -28,11 +28,24 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from logging_interface import create_interface
 from models import db, User
 from configs.auth_config import (
+    # General server settings
     AUTH_SERVER_HOST,
     AUTH_SERVER_PORT,
     AUTH_API_VERSION,
     AUTH_SERVER_IDENTIFIER,
     AUTH_SERVER_DEBUG_MODE,
+    STATUS_CODES,
+
+    # ORM layer related
+    SQLALCHEMY_DATABASE_URI,
+    SQLALCHEMY_TRACK_MODIFICATIONS,
+
+    # Security related
+    AUTH_SERVER_MAX_JSON_SIZE,
+    RATE_LIMIT_TIERS,
+    JWT_ACCESS_TOKEN_EXPIRES,
+    JWT_REFRESH_TOKEN_EXPIRES,
+    SQL_PATTERN,
     AUTH_SERVER_SSL_CERT,
     AUTH_SERVER_SSL_KEY,
     AUTH_SERVER_SSL,
@@ -40,23 +53,20 @@ from configs.auth_config import (
     PBKDF2HMAC_SETTINGS,
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
-    JWT_QUERY_STRING_NAME,
+    JWT_TOKEN_LOCATIONS,
+    JWT_QUERY_STRING_NAME, 
+    # (e.g. ?token=...) not recommended for production, default configuration of JWT_TOKEN_LOCATIONS 
+    # does not include query string, but query string related logic is still inserted for flexibility and development purposes
     JWT_JSON_KEY,
     JWT_REFRESH_JSON_KEY,
-    JWT_TOKEN_LOCATIONS,
-    JWT_ACCESS_TOKEN_EXPIRES,
-    STATUS_CODES,
-    JWT_REFRESH_TOKEN_EXPIRES,
-    SQL_PATTERN,
-    SQLALCHEMY_DATABASE_URI,
-    SQLALCHEMY_TRACK_MODIFICATIONS,
-    AUTH_SERVER_MAX_JSON_SIZE,
-    RATE_LIMIT_TIERS,
+
+    # Logging interface related
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
-    # To lessen verbosity, the prefix "AUTH_SERVER_"
-    # is not used for the following logging interface settings,
-    # but, being taken from the auth_config module, they are already properly namespaced.
+
+        # To lessen verbosity, the prefix "AUTH_SERVER_"
+        # is not used for the following logging interface settings,
+        # but, being taken from the auth_config module, they are already properly namespaced.
     LOG_INTERFACE_DB_FILENAME,
     LOG_INTERFACE_MAX_RETRIES,
     LOG_INTERFACE_BATCH_DELAY,

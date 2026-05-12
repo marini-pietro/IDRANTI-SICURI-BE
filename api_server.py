@@ -35,13 +35,34 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from api_blueprints.blueprints_utils import log_interface, log, jwt_validation_required
 from models import db
 from configs.api_config import (
+    # General server settings
     API_SERVER_HOST,
     API_SERVER_PORT,
     API_SERVER_DEBUG_MODE,
     STATUS_CODES,
     API_VERSION,
-    AUTH_API_VERSION,
     URL_PREFIX,
+
+    # ORM layer related
+    SQLALCHEMY_DATABASE_URI,
+    SQLALCHEMY_TRACK_MODIFICATIONS,
+
+    # Documentation related
+    SWAGGER_CONFIG,
+
+    # Security related
+    API_SERVER_SSL_CERT,
+    API_SERVER_SSL_KEY,
+    API_SERVER_MAX_JSON_SIZE,
+    SQL_SCAN_MAX_LEN,
+    SQL_PATTERN,
+    SQL_SCAN_MAX_RECURSION_DEPTH,
+    IS_API_SERVER_SSL,
+
+    # Authentication service/flow related
+    AUTH_API_VERSION,
+
+    # JWT related
     JWT_SECRET_KEY,
     JWT_ALGORITHM,
     JWT_QUERY_STRING_NAME,
@@ -50,17 +71,9 @@ from configs.api_config import (
     JWT_TOKEN_LOCATIONS,
     JWT_REFRESH_TOKEN_EXPIRES,
     JWT_ACCESS_TOKEN_EXPIRES,
-    IS_API_SERVER_SSL,
-    API_SERVER_SSL_CERT,
-    API_SERVER_SSL_KEY,
-    API_SERVER_MAX_JSON_SIZE,
-    SQL_SCAN_MAX_LEN,
-    SQL_PATTERN,
-    SQL_SCAN_MAX_RECURSION_DEPTH,
-    SQLALCHEMY_DATABASE_URI,
-    SQLALCHEMY_TRACK_MODIFICATIONS,
-    SWAGGER_CONFIG,
     INVALID_JWT_MESSAGES,
+
+    # Rate limit related
     RATE_LIMIT_TIERS,
     API_SERVER_RATE_LIMIT,
 )

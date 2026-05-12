@@ -39,28 +39,36 @@ Design notes
 
 """
 
-# Standard library imports
-import gc  # Garbage collection manual control (force a collection cycle to unlock files before deletion)
-import sqlite3
+# First party imports
+import gc  # Garbage collection manual control
+# (force a collection cycle to unlock database files before deletion)
 import socket
 import threading
 from json import loads as json_loads
 from json import dumps as json_dumps
 from time import sleep as time_sleep
 from contextlib import contextmanager as contextlib_contextmanager
+# guarantees closure and resources cleanup even if exceptions occur
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+# Third party imports
+import sqlite3
+
+# Handling of .env settings for the logging interface is done by the
+# service that istanciates this interface as to avoid unnecessary redundant .env managment logic in this module.
+# Sensible defaults are still provided in the __init__ method but actual configuration taken from the .env file is expected to be
+# passed in by the service when creating an instance of the logging interface via the `create_interface()` factory function.
 
 class SQLiteUDPLogger:
     """
-    Production-ready logger for low-volume systems.
-
-    Public API (start/stop/log/query/get_stats) comes first, followed by
-    background thread run loops, then internal helpers and database helpers.
-    This ordering is deliberate to make the class easier to scan and
-    reason about while preserving existing runtime behavior.
+    Production-ready logger interface for low-volume systems.  
+    An instance of this class is intended to be created once per service, 
+    configured with the syslog target and left to handle log persistence and forwarding in the background.
+    To easily create an instance use the `create_interface()` factory function.
+    Service code can call the `log()` method to store messages, and optionally query recent logs or stats via `query_logs()` and `get_stats()`.
     """
 
     # -- Public API -------------------------------------------------
@@ -69,23 +77,28 @@ class SQLiteUDPLogger:
         syslog_host: str,
         service_name: str = "unknown-service",
         syslog_port: int = 514,
-        db_filename: str = "",
+        db_filename: str | None = None,
         max_retries: int = 5,
         retry_delay: int = 3,
     ):
+
+        # Store configuration and initialize paths/resources
         self.syslog_host = syslog_host
         self.syslog_port = syslog_port
         self.service_name = service_name
         self.max_retries = max_retries
         self.retry_delay = retry_delay
 
-        if db_filename == "":
+        # If no custom DB filename is provided, generate one with a timestamp and service name
+        if db_filename is None:
             db_filename = f"{datetime.now(timezone.utc).strftime('%Y-%m-%d_%H-%M-%S')}-{self.service_name}-log.db"
 
+        # Ensure the logs directory exists and set the path for the active database file
         current_dir = Path(__file__).parent.absolute()
         self.logs_dir = current_dir / "logs"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
+        # The active database file is created (if it doesn't exist) and initialized with the required schema.
         self.db_path = self.logs_dir / db_filename
         Path(self.db_path).touch(exist_ok=True)
         self._init_database()
@@ -418,7 +431,7 @@ class SQLiteUDPLogger:
                 )
                 """)
 
-    @contextlib_contextmanager
+    @contextlib_contextmanager # guarantees closure and resources cleanup even if exceptions occur
     def _get_connection(self, db_path: Optional[Path] = None):
         """Context manager yielding an sqlite3.Connection for the given DB path."""
 
@@ -593,21 +606,29 @@ class SQLiteUDPLogger:
 def create_interface(
     syslog_host: str,
     syslog_port: int,
-    service_name: str,
-    max_retries: int,
-    retry_delay: int,
-    db_filename: str,
+    service_name: str = "unknown-service",
+    max_retries: int = 5,
+    retry_delay: int = 3,
+    db_filename: str | None = None,
 ) -> SQLiteUDPLogger:
     """
     Creates instance of logger interface with given configuration.
+    Args:
+    - `syslog_host`: IP or hostname of the syslog receiver
+    - `syslog_port`: UDP port of the syslog receiver
+    - `service_name`: Identifier for the service using this logger (used in log entries and DB filename)
+    - `max_retries`: Max attempts to send a log before it's considered permanently failed
+    - `retry_delay`: Seconds to wait between retry attempts in background threads
+    - `db_filename`: Optional custom filename for the active SQLite DB (must end with .db). If not provided, a timestamped filename will be generated.
     """
 
-    print("Attempting to create logging interface with:")
-    print(f"syslog_host: {syslog_host}")
-    print(f"syslog_port: {syslog_port}")
-    print(f"service_name: {service_name}\n")
+    print(f"Creating logging interface for {service_name} with:")
+    print(f"Syslog host: {syslog_host}")
+    print(f"Syslog port: {syslog_port}")
+    print(f"Max retries: {max_retries}")
+    print(f"Retry delay: {retry_delay}")
+    print(f"DB filename: {db_filename}\n")
 
-    # Defaults are already handled in SQLiteUDPLogger init
     return SQLiteUDPLogger(
         syslog_host=syslog_host,
         syslog_port=syslog_port,

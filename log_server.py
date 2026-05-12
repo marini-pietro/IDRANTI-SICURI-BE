@@ -5,8 +5,10 @@ and logs messages to both console and file.
 It also handles delayed logs when the rate limit is exceeded.
 """
 
-# Library imports
+# First party imports
 import logging
+import os
+import socket as socket_lib
 from time import sleep as time_sleep
 from threading import Thread, Lock, Event as threading_Event
 from typing import List, Tuple, Deque, Optional
@@ -15,14 +17,32 @@ from json import JSONDecodeError
 from os.path import abspath as os_path_abspath
 from os.path import dirname as os_path_dirname
 from os.path import join as os_path_join
-import os
-import socket as socket_lib
 from selectors import DefaultSelector as selectors_DefaultSelector
 from selectors import EVENT_READ as selectors_EVENT_READ
 from datetime import datetime, timezone
 from collections import defaultdict, deque
+
+# Third party imports
 from cachetools import TTLCache
 
+# Local imports
+from configs.log_config import (
+    # General server settings
+    LOG_SERVER_HOST,
+    LOG_SERVER_PORT,
+    LOG_FILE_NAME,
+    LOGGER_NAME,
+    LOG_SERVER_IDENTIFIER,
+    DELAYED_LOGS_QUEUE_SIZE,
+
+    # Security related
+    LOG_SERVER_RATE_LIMIT,
+    RETAIN_LOGS_RATE_LIMIT_TRIGGER,
+    LOG_RATE_LIMIT_TRIGGER_EVENTS,
+    LOG_SERVER_RATE_LIMIT_MAX_REQUESTS,
+    LOG_SERVER_RATE_LIMIT_CACHE_SIZE,
+    LOG_SERVER_RATE_LIMIT_CACHE_TTL,
+)
 
 class ConditionalFormatter(logging.Formatter):
     """
@@ -57,24 +77,6 @@ class ConditionalFormatter(logging.Formatter):
         else:
             s = ct.strftime("%Y-%m-%d %H:%M:%S")
         return f"{s},{int(record.msecs):03d}"
-
-
-# Local imports
-from configs.log_config import (
-    LOG_SERVER_HOST,
-    LOG_SERVER_PORT,
-    LOG_FILE_NAME,
-    LOGGER_NAME,
-    LOG_SERVER_IDENTIFIER,
-    LOG_SERVER_RATE_LIMIT,
-    DELAYED_LOGS_QUEUE_SIZE,
-    RETAIN_LOGS_RATE_LIMIT_TRIGGER,
-    LOG_RATE_LIMIT_TRIGGER_EVENTS,
-    LOG_SERVER_RATE_LIMIT_MAX_REQUESTS,
-    LOG_SERVER_RATE_LIMIT_CACHE_SIZE,
-    LOG_SERVER_RATE_LIMIT_CACHE_TTL,
-)
-
 
 # Define the logger class
 class Logger:

@@ -17,25 +17,33 @@ from requests.exceptions import RequestException
 # Local imports
 from logging_interface import create_interface
 from configs.api_config import (
+    # API server related
     API_SERVER_HOST,
     API_SERVER_PORT,
-    IS_API_SERVER_SSL,
+    STATUS_CODES,
+    URL_PREFIX,
+
+    # Authorization / authentication related
     AUTH_SERVER_HOST,
     AUTH_SERVER_PORT,
-    AUTH_API_VERSION,
+    NOT_AUTHORIZED_MESSAGE,
+    ROLES,
+    IS_API_SERVER_SSL,
     IS_AUTH_SERVER_SSL,
+    AUTH_API_VERSION,
+
+    # JWT related
     JWT_TOKEN_LOCATIONS,
     JWT_JSON_KEY,
     JWT_QUERY_STRING_NAME,
     JWT_VALIDATION_CACHE_SIZE,
     JWT_VALIDATION_CACHE_TTL,
-    NOT_AUTHORIZED_MESSAGE,
-    ROLES,
-    STATUS_CODES,
-    URL_PREFIX,
+
+    # Logging interface related
     API_SERVER_IDENTIFIER,
     LOG_SERVER_HOST,
     LOG_SERVER_PORT,
+
     # To lessen verbosity, the prefix "API_SERVER_"
     # is not used for the following logging interface settings,
     # but, being taken from the api_config module, they are already properly namespaced.
@@ -55,13 +63,13 @@ log_interface = create_interface(
     retry_delay=LOG_INTERFACE_BATCH_DELAY,
 )
 
-print("Logging interface created successfully. Starting background thread...")
-log_interface.start()  # Start the background thread for the logging interface
-print("Logging interface background thread started successfully.")
+print("Logging interface created successfully. Starting background threads...")
+log_interface.start()  # Start the logging interface
+print("Logging interface background threads started successfully.")
 
 log = (
     log_interface.log
-)  # Effectively rename the log method from the interface for better readability in the code
+)  # Rename the log method from the interface to just "log" for better readability in the code
 
 # Authentication related
 # Cache for token validation results
