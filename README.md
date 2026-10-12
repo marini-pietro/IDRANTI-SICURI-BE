@@ -29,7 +29,7 @@ Services:
 
 - `api_server.py` — main HTTP(S) API that registers blueprints, configures JWT validation, describes OpenAPI docs (Flasgger) and adds security pre-checks (e.g. SQL injection check and rate limiting).
   
-- `auth_server.py` — dedicated authentication microservice that verifies passwords and issues JWT access and refresh tokens. It contains the login, token validation and refresh endpoints.
+- `auth_server.py` — dedicated authentication microservice that verifies passwords and issues JWT access and refresh tokens.
 
 - `log_server.py` — UDP syslog-like listener that parses incoming messages, performs rate-limiting, and writes structured output to file and console.
 
@@ -37,7 +37,7 @@ Shared components and important files:
 
 - `logging_interface.py` - Streamlined logging interface for services with local file backup in the form of SQLite file databases.  
 It allows tracking of log statistics, better service instance identification, unsent logs tracking and re-sending.  
-Each service communicates to its own logging interface which writes to a minimal SQLite database, then, periodically, a background threat gets the logs that have not been sent yet from the database and sends them as a JSON to the syslog server.  
+Each service communicates to its own logging interface which writes to a minimal SQLite database, then, periodically, a background thread gathers the logs that have not been sent yet and sends them as a JSON to the syslog service.  
 Services sharing an interface will most probably not be necessary but still possible with some edits to the logging interface logic.
 Namely, it would be necessary to:
   - pass the service instance identifier string to the interface when logging (i.e. not at initialization like the current solution)  
@@ -48,15 +48,18 @@ Namely, it would be necessary to:
 - `models.py` — SQLAlchemy models for database tables.  
 Each model includes a `to_dict()` helper function for JSON serialization.
 
-- `*_config.py` — centralized configuration values (JWT settings, DB URI, regex patterns, rate limit parameters, file names, ports, etc...).  
+- `configs/` — centralized configuration values (JWT settings, DB URI, regex patterns, rate limit parameters, file names, ports, etc...).  
 To simplify the separation of the services into different machines each service has its own config file only with the values it strictly needs.  
 Because of this some parameters (e.g. ports) must be equal in different config files, during development it's recommended to edit configuration values using codebase-wise search and replace tools (common in any major IDE) (e.g. magnifying glass in the left tool bar in Visual Studio Code).
 Many defaults are development-friendly; override them before production.
 
 - `api_blueprints/` — collection of Flask blueprints and utilities.  
-Each blueprint corresponds to a logical resource (hydrant, control, photo, operator, user). `blueprints_utils.py` contains common helpers (logging, rate-limiting utilities, input validation helpers).
+Each blueprint corresponds to a logical resource (hydrant, control, photo, operator, user). 
+`blueprints_utils.py` contains common helper functions (e.g. logging, rate-limiting, input validation, etc...).
+
+- `docker/` - Docker files and related scripts.
   
-- `tests/` — pytest suites covering the microservices and blueprints.
+- `tests/` — pytest suites.
 
 ## Documentation
 
